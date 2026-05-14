@@ -230,8 +230,8 @@ export class ConsumptionChartComponent implements OnChanges, OnInit, AfterViewIn
         }
       },
       scales: {
-        y: { type: 'linear' as const, position: 'left' as const, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
-        yV: { type: 'linear' as const, position: 'right' as const, min: 0, max: 500, grid: { display: false }, ticks: { font: { size: 10 }, color: '#f59e0b' } },
+        y: { type: 'linear' as const, position: 'left' as const, min: 0, max: 600, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+        yV: { type: 'linear' as const, position: 'right' as const, min: 50, max: 600, grid: { display: false }, ticks: { font: { size: 10 }, color: '#f59e0b' } },
         x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 12 } }
       }
     };

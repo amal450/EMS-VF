@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Res, Delete } from '@nestjs/common';
 import { MeasurementsService } from './measurements.service';
 import { RealTimeBridgeService } from './real-time-bridge.service'; 
 import { JwtAuthGuard } from '../auth/jwt.guard';
@@ -36,21 +36,130 @@ export class MeasurementsController {
   getLatestAlert() { return this.measurementsService.findLatestAlert(); }
 
   @UseGuards(JwtAuthGuard)
+  @Delete('alerts/:id')
+  async deleteAlert(@Param('id') id: string) {
+    console.log('🔔 Requête DELETE alerts reçue, ID:', id);
+    try {
+      return await this.measurementsService.deleteAlert(+id);
+    } catch (error) {
+      console.error('❌ Erreur contrôleur:', error);
+      throw error;
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('billing/:id')
-  getBilling(@Param('id') id: string) { return this.measurementsService.calculateBilling(+id); }
+  getBilling(@Param('id') id: string, @Query('month') month?: string, @Query('year') year?: string) {
+    const monthNum = month ? Number(month) : undefined;
+    const yearNum = year ? Number(year) : undefined;
+    return this.measurementsService.getInvoice(+id, monthNum, yearNum);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('billing/:id')
+  async saveBilling(@Param('id') id: string, @Query('month') month?: string, @Query('year') year?: string) {
+    const monthNum = month ? Number(month) : new Date().getMonth() + 1;
+    const yearNum = year ? Number(year) : new Date().getFullYear();
+    return this.measurementsService.saveInvoice(+id, monthNum, yearNum);
+  }
+
+  private formatReportDate(date: Date) {
+    return date.toLocaleDateString('fr-FR');
+  }
+
+  private normalizeInterval(startDate: Date, endDate: Date) {
+    const normalizedStart = new Date(startDate);
+    const normalizedEnd = new Date(endDate);
+    normalizedStart.setHours(0, 0, 0, 0);
+    normalizedEnd.setHours(0, 0, 0, 0);
+    return { start: normalizedStart, end: normalizedEnd };
+  }
+
+  private parseIsoDate(dateStr?: string): Date | null {
+    if (!dateStr) return null;
+    const parts = dateStr.trim().split('-').map(Number);
+    if (parts.length !== 3 || parts.some(p => !Number.isFinite(p))) return null;
+    const [year, month, day] = parts;
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
+
+  private chooseTimelineUnit(start: Date, end: Date) {
+    const durationMs = end.getTime() - start.getTime();
+    const dayCount = durationMs / (1000 * 60 * 60 * 24) + 1;
+    if (dayCount <= 1.5) return 'hour';
+    if (dayCount <= 92) return 'day';
+    return 'month';
+  }
+
+  private buildTimeline(data: any[], start: Date, end: Date, unit: 'hour' | 'day' | 'month'): Array<{ time: string; avgpower: number; avgvoltage: number; avgcurrent: number; }> {
+    const formatter = (date: Date) => {
+      const iso = date.toISOString();
+      if (unit === 'hour') return iso.slice(0, 13).replace('T', ' ');
+      if (unit === 'month') return iso.slice(0, 7);
+      return iso.slice(0, 10);
+    };
+
+    const valueMap = new Map<string, any>();
+    data.forEach(item => {
+      const date = new Date(item.time);
+      const key = formatter(date);
+      valueMap.set(key, item);
+    });
+
+    const rows: Array<{ time: string; avgpower: number; avgvoltage: number; avgcurrent: number; }> = [];
+    const cursor = new Date(start);
+    while (cursor <= end) {
+      const key = formatter(cursor);
+      const item = valueMap.get(key);
+      rows.push({
+        time: key,
+        avgpower: item?.avgpower || 0,
+        avgvoltage: item?.avgvoltage || 0,
+        avgcurrent: item?.avgcurrent || 0,
+      });
+      if (unit === 'hour') cursor.setHours(cursor.getHours() + 1);
+      else if (unit === 'month') cursor.setMonth(cursor.getMonth() + 1);
+      else cursor.setDate(cursor.getDate() + 1);
+    }
+    return rows;
+  }
 
   // --- GÉNÉRATION DU RAPPORT (CSV OU HTML POUR PDF) ---
   @Get('report/:id')
-  async getReport(@Param('id') id: string, @Query('format') format: string, @Res() res: express.Response) {
-    const data = await this.measurementsService.findHistory(+id, 'month');
+  async getReport(
+    @Res() res: express.Response,
+    @Param('id') id: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('format') format?: string,
+  ) {
+    const parsedStart = this.parseIsoDate(startDate);
+    const parsedEnd = this.parseIsoDate(endDate);
+    const hasCustomRange = Boolean(parsedStart && parsedEnd);
+    const { start, end } = hasCustomRange
+      ? this.normalizeInterval(parsedStart!, parsedEnd!)
+      : this.normalizeInterval(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), new Date());
+    const rawData = hasCustomRange
+      ? await this.measurementsService.findHistoryInterval(+id, startDate?.trim() ?? '', endDate?.trim() ?? '')
+      : await this.measurementsService.findHistory(+id, 'month');
+    const intervalUnit = this.chooseTimelineUnit(start, end);
+    const hasData = rawData.length > 0;
+    const data = hasData ? this.buildTimeline(rawData, start, end, intervalUnit) : [];
+    const startLabel = this.formatReportDate(start);
+    const endLabel = this.formatReportDate(end);
+    const rangeLabel = `${startLabel} → ${endLabel}`;
     const isPdf = format === 'pdf';
+
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
     if (isPdf) {
       // Préparer les données pour les graphiques
-      const chartLabels = data.map(d => d.time || '-').slice(-20);
-      const chartPower = data.map(d => d.avgpower ? parseFloat(d.avgpower.toFixed(2)) : 0).slice(-20);
-      const chartVoltage = data.map(d => d.avgvoltage ? parseFloat(d.avgvoltage.toFixed(2)) : 230).slice(-20);
-      const chartCurrent = data.map(d => d.avgcurrent ? parseFloat(d.avgcurrent.toFixed(2)) : 0).slice(-20);
+      const chartLabels = hasData ? data.map(d => d.time || '-').slice(-20) : [startLabel];
+      const chartPower = hasData ? data.map(d => d.avgpower ? parseFloat(d.avgpower.toFixed(2)) : 0).slice(-20) : [null];
+      const chartVoltage = hasData ? data.map(d => d.avgvoltage ? parseFloat(d.avgvoltage.toFixed(2)) : 230).slice(-20) : [null];
+      const chartCurrent = hasData ? data.map(d => d.avgcurrent ? parseFloat(d.avgcurrent.toFixed(2)) : 0).slice(-20) : [null];
 
       // Générer HTML pour impression PDF avec graphiques
       let html = `
@@ -86,9 +195,12 @@ export class MeasurementsController {
 <body>
   <div class="header">
     <h1>⚡ RAPPORT D'EXPLOITATION</h1>
-    <p>Équipement ID #${id} | Date: ${new Date().toLocaleDateString('fr-FR')}</p>
+    <p>Équipement ID #${id}</p>
+    <p>Date de début : ${startLabel}</p>
+    <p>Date de fin : ${endLabel}</p>
+    <p>Intervalle sélectionné : ${rangeLabel}</p>
+    <p>Date d'émission : ${new Date().toLocaleDateString('fr-FR')}</p>
   </div>
-  
   <div class="section">
     <h2>📊 Description des Analyses</h2>
     <ul style="padding-left: 20px; line-height: 1.8;">
@@ -102,6 +214,7 @@ export class MeasurementsController {
 
   <div class="section">
     <h2>📈 Courbes Historiques</h2>
+    ${!hasData ? `<p style="color: #64748b; margin-bottom: 15px;">Aucune mesure enregistrée pour la période sélectionnée. Les courbes resteront vides.</p>` : ''}
     <div class="charts-grid">
       <div class="chart-box">
         <h3>Puissance (kW)</h3>
@@ -216,13 +329,19 @@ export class MeasurementsController {
       <tbody>
 `;
 
-      data.forEach(d => {
-        const v = d.avgvoltage ? d.avgvoltage.toFixed(2) : "230.00";
-        const i = d.avgcurrent ? d.avgcurrent.toFixed(2) : "0.00";
-        const p = d.avgpower ? d.avgpower.toFixed(2) : "0.00";
-        const e = (d.avgpower * 24).toFixed(2);
-        
+      if (data.length === 0) {
         html += `
+        <tr>
+          <td colspan="11" style="text-align:center; padding: 18px; color: #64748b;">Aucune mesure disponible pour la période sélectionnée.</td>
+        </tr>`;
+      } else {
+        data.forEach(d => {
+          const v = d.avgvoltage ? d.avgvoltage.toFixed(2) : "230.00";
+          const i = d.avgcurrent ? d.avgcurrent.toFixed(2) : "0.00";
+          const p = d.avgpower ? d.avgpower.toFixed(2) : "0.00";
+          const e = (d.avgpower * 24).toFixed(2);
+          
+          html += `
         <tr>
           <td>${d.time || '-'}</td>
           <td>${v}</td>
@@ -236,7 +355,8 @@ export class MeasurementsController {
           <td>50.00</td>
           <td>0.95</td>
         </tr>`;
-      });
+        });
+      }
 
       html += `
       </tbody>
@@ -256,7 +376,10 @@ export class MeasurementsController {
     // Format CSV par défaut
     let csv = "RAPPORT D'EXPLOITATION DES DONNEES ELECTRIQUES TRIPHASEES\n";
     csv += `EQUIPEMENT : ID #${id}\n`;
-    csv += `DATE DU RAPPORT : ${new Date().toLocaleDateString()}\n\n`;
+    csv += `DATE DE DEBUT : ${startLabel}\n`;
+    csv += `DATE DE FIN : ${endLabel}\n`;
+    csv += `INTERVALLE SELECTIONNE : ${rangeLabel}\n`;
+    csv += `DATE DU RAPPORT : ${new Date().toLocaleDateString('fr-FR')}\n\n`;
 
     csv += "DESCRIPTION DES ANALYSES :\n";
     csv += "1. Rapport de tension : Analyse des tensions phase-neutre (V1N, V2N, V3N) et phase-phase (V12, V23, V31).\n";

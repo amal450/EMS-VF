@@ -12,7 +12,7 @@ import { AssetStateService } from '../services/asset-state.service';
     <div class="w-full h-full p-10 bg-[#f8fafc] overflow-y-auto custom-scrollbar">
       
       <!-- HEADER : TITRE DÉGRADÉ ET BOUTONS PILLS -->
-      <div class="mb-10 flex justify-between items-end px-4">
+      <div class="mb-10 flex justify-between items-center px-4">
         <div>
           <h1 class="text-4xl font-black bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent tracking-tight mb-2 uppercase">
             Facture : {{ assetName() }}
@@ -20,7 +20,17 @@ import { AssetStateService } from '../services/asset-state.service';
           <p class="text-slate-400 font-bold italic text-sm uppercase tracking-widest">Récapitulatif financier mensuel</p>
         </div>
         
-        <div class="flex gap-4 no-print">
+        <div class="flex items-center gap-3 no-print whitespace-nowrap">
+          <div class="flex items-center gap-2 text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">
+            <span>Mois</span>
+            <select class="px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="selectedMonth()" (change)="selectedMonth.set(toNumber($any($event.target).value)); loadBillingData();">
+              <option *ngFor="let month of months" [value]="month.value">{{ month.label }}</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2 text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">
+            <span>Année</span>
+            <input type="number" min="2000" max="2100" class="w-24 px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="selectedYear()" (input)="selectedYear.set(toNumber($any($event.target).value)); loadBillingData();" />
+          </div>
           <button (click)="loadBillingData()" 
                   class="px-8 py-3 bg-cyan-500/10 text-cyan-600 border-2 border-cyan-500/20 rounded-full font-black text-[12px] uppercase shadow-[0_0_15px_rgba(6,182,212,0.15)] hover:bg-cyan-500 hover:text-white transition-all flex items-center gap-2">
             <span>🔄</span> Recalculer
@@ -196,6 +206,23 @@ export class BillingComponent implements OnInit {
     rateNuit: 0.222, 
     primePuissance: 22000.000 
   });
+  selectedMonth = signal<number>(new Date().getMonth() + 1);
+  selectedYear = signal<number>(new Date().getFullYear());
+  months = [
+    { value: 1, label: 'Janvier' },
+    { value: 2, label: 'Février' },
+    { value: 3, label: 'Mars' },
+    { value: 4, label: 'Avril' },
+    { value: 5, label: 'Mai' },
+    { value: 6, label: 'Juin' },
+    { value: 7, label: 'Juillet' },
+    { value: 8, label: 'Août' },
+    { value: 9, label: 'Septembre' },
+    { value: 10, label: 'Octobre' },
+    { value: 11, label: 'Novembre' },
+    { value: 12, label: 'Décembre' }
+  ];
+  years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
 
   ngOnInit() {
     this.loadBillingData();
@@ -209,7 +236,11 @@ export class BillingComponent implements OnInit {
     const token = this.authService.getToken();
     if (!token) return;
 
-    this.http.get<any>(`http://localhost:3000/measurements/billing/${id}`, {
+    const month = this.selectedMonth();
+    const year = this.selectedYear();
+    const url = `http://localhost:3000/measurements/billing/${id}?month=${month}&year=${year}`;
+
+    this.http.get<any>(url, {
       headers: { Authorization: `Bearer ${token}` }
     }).subscribe(res => {
       if (res) this.bill.set(res);
@@ -224,7 +255,11 @@ export class BillingComponent implements OnInit {
   }
 
   calculateTVA() {
-    return (this.calculateEnergyHT() + this.bill().primePuissance) * 0.19;
+    return (this.calculateEnergyHT() + this.bill().primePuissance) * (this.bill().tva || 0.19);
+  }
+
+  toNumber(value: any) {
+    return Number(value);
   }
 
   calculateTotal() {
@@ -234,6 +269,9 @@ export class BillingComponent implements OnInit {
   downloadPDF() {
     const b = this.bill();
     const name = this.assetName();
+    const month = this.selectedMonth();
+    const year = this.selectedYear();
+    const monthLabel = this.months.find(m => m.value === month)?.label || String(month);
     
     // Generate HTML content for the invoice
     const htmlContent = `
@@ -241,7 +279,7 @@ export class BillingComponent implements OnInit {
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Facture - ${name}</title>
+  <title>Facture - ${name} ${monthLabel} ${year}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1e293b; background: white; }
@@ -265,7 +303,9 @@ export class BillingComponent implements OnInit {
   <div class="invoice-box">
     <div class="header">
       <h1>⚡ FACTURE</h1>
-      <p>Équipement: ${name} | Date: ${new Date().toLocaleDateString('fr-FR')}</p>
+      <p>Équipement: ${name}</p>
+      <p>Période : ${monthLabel} ${year}</p>
+      <p>Date d'émission : ${new Date().toLocaleDateString('fr-FR')}</p>
     </div>
     
     <table>
@@ -334,7 +374,7 @@ export class BillingComponent implements OnInit {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Facture_${name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf.html`;
+    link.download = `Facture_${name.replace(/\s+/g, '_')}_${monthLabel}_${year}_${new Date().toISOString().slice(0,10)}.pdf.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

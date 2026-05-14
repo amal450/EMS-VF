@@ -86,6 +86,12 @@ import { AuthService } from '../services/auth.service';
                   <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
                 </svg>
               </div>
+              <!-- Bouton Supprimer -->
+              <button type="button" (click)="askDeleteAlert(a.id, a.assetName, a.message)" 
+                      class="w-7 h-7 rounded-full bg-slate-100 hover:bg-red-500 text-slate-500 hover:text-white flex items-center justify-center transition-all border border-slate-300 hover:border-red-500 font-bold text-lg cursor-pointer shadow-sm hover:shadow-md"
+                      title="Supprimer cette alerte">
+                ×
+              </button>
             </div>
 
           </div>
@@ -96,6 +102,19 @@ import { AuthService } from '../services/auth.service';
             Aucune anomalie détectée dans l'historique.
           </div>
 
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL : CONFIRMATION DE SUPPRESSION D'ALERTE -->
+    <div *ngIf="showDeleteAlertModal()" class="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-md">
+      <div class="bg-white p-10 rounded-[2.5rem] w-96 text-center shadow-[0_0_50px_rgba(239,68,68,0.3)] border border-white animate-in zoom-in duration-200">
+        <div class="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl font-bold border border-red-100">!</div>
+        <h3 class="text-2xl font-black text-slate-900 mb-2">Supprimer ?</h3>
+        <p class="text-sm text-slate-400 px-4 mb-8 italic text-center">Voulez-vous vraiment supprimer cette alerte <b>{{ alertToDeleteLabel() }}</b> ?</p>
+        <div class="flex gap-4">
+          <button type="button" (click)="showDeleteAlertModal.set(false)" class="flex-1 py-3.5 font-bold bg-slate-100 text-slate-500 rounded-2xl transition">Non</button>
+          <button type="button" (click)="confirmDeleteAlert()" class="flex-1 py-3.5 font-black bg-red-500 text-white rounded-2xl shadow-lg shadow-red-500/30 hover:bg-red-600 transition">Oui, Supprimer</button>
         </div>
       </div>
     </div>
@@ -141,5 +160,66 @@ export class AlertsComponent implements OnInit {
     this.notificationTimeout = setTimeout(() => {
       this.showNotification.set(false);
     }, 3000);
+  }
+
+  showDeleteAlertModal = signal<boolean>(false);
+  alertToDeleteId: number | null = null;
+  alertToDeleteLabel = signal<string>('');
+
+  askDeleteAlert(alertId: number, assetName: string, message: string) {
+    if (!alertId || alertId === null || alertId === undefined) {
+      console.error('ID alerte invalide:', alertId);
+      return;
+    }
+
+    this.alertToDeleteId = alertId;
+    this.alertToDeleteLabel.set(`${assetName} - ${message}`);
+    this.showDeleteAlertModal.set(true);
+  }
+
+  confirmDeleteAlert() {
+    if (!this.alertToDeleteId) {
+      console.error('Aucune alerte sélectionnée pour suppression');
+      return;
+    }
+
+    const numId = Number(this.alertToDeleteId);
+    console.log('🗑️ Suppression alerte ID:', numId);
+    
+    this.http.delete(`http://localhost:3000/measurements/alerts/${numId}`, {
+      headers: { Authorization: `Bearer ${this.auth.getToken()}` }
+    }).subscribe({
+      next: (response) => {
+        console.log('✅ Alerte supprimée avec succès ID:', numId, response);
+        this.alerts.update(alerts => alerts.filter(a => a.id !== numId));
+        this.showDeleteAlertModal.set(false);
+        this.alertToDeleteId = null;
+        this.alertToDeleteLabel.set('');
+        this.reloadAlerts();
+        this.notificationMessage.set('Alerte supprimée avec succès.');
+        this.showNotification.set(true);
+        if (this.notificationTimeout) clearTimeout(this.notificationTimeout);
+        this.notificationTimeout = setTimeout(() => this.showNotification.set(false), 3000);
+      },
+      error: (err) => {
+        console.error('❌ Erreur suppression alerte:', numId, err);
+        window.alert('Erreur lors de la suppression de l\'alerte');
+      }
+    });
+  }
+
+  private reloadAlerts() {
+    const token = this.auth.getToken();
+    if (!token) return;
+    
+    this.http.get<any[]>('http://localhost:3000/measurements/alerts/all', {
+      headers: { Authorization: `Bearer ${token}` }
+    }).subscribe({
+      next: (res) => {
+        console.log('📊 Alertes rechargées:', res?.length || 0);
+        this.alerts.set(res || []);
+      },
+      error: (err) => console.error('❌ Erreur rechargement alertes:', err)
+    });
   }
 }

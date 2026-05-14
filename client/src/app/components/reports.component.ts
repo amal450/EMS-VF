@@ -20,8 +20,20 @@ import { AuthService } from '../services/auth.service';
         </div>
         
         <div class="bg-white rounded-2xl px-6 py-3 border-2 border-emerald-100 shadow-[0_0_15px_rgba(16,185,129,0.1)] flex items-center gap-3">
-          <span class="text-emerald-500 text-xl">📄</span>
+          <span class="text-emerald-500 text-xl"></span>
           <span class="text-xs font-black text-slate-700 uppercase tracking-widest">Rapports Prêts</span>
+        </div>
+      </div>
+
+      <div class="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">Du</label>
+          <input type="date" class="px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="reportStartDate()" (change)="reportStartDate.set($any($event.target).value)" />
+          <label class="text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">Au</label>
+          <input type="date" class="px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="reportEndDate()" (change)="reportEndDate.set($any($event.target).value)" />
+        </div>
+        <div class="flex flex-col gap-3 items-start md:items-end">
+          <button (click)="loadReportDateRange()" class="px-6 py-3 rounded-full bg-sky-500 text-white font-black uppercase tracking-[0.2em] hover:bg-sky-600 transition">Actualiser</button>
         </div>
       </div>
 
@@ -77,10 +89,10 @@ import { AuthService } from '../services/auth.service';
 <!-- BOUTONS EXPORTER -->
             <div class="flex gap-2">
               <button (click)="downloadPDF(asset.id, asset.name)" class="flex-1 py-2.5 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all border-2 shadow-sm flex items-center justify-center gap-1 bg-sky-500/5 text-sky-600 border-sky-200 hover:bg-sky-600 hover:text-white">
-                📥 PDF
+                 PDF
               </button>
               <button (click)="downloadCSV(asset.id, asset.name)" class="flex-1 py-2.5 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all border-2 shadow-sm flex items-center justify-center gap-1 bg-purple-500/5 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white">
-                📄 CSV
+                 CSV
               </button>
             </div>
           </div>
@@ -97,6 +109,8 @@ export class ReportsComponent implements OnInit {
   private http = inject(HttpClient);
   private auth = inject(AuthService);
   assets = signal<any[]>([]);
+  reportStartDate = signal<string>(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+  reportEndDate = signal<string>(new Date().toISOString().slice(0, 10));
 
   ngOnInit() {
     const token = this.auth.getToken();
@@ -121,8 +135,12 @@ export class ReportsComponent implements OnInit {
   downloadCSV(id: number, name: string) {
     const token = this.auth.getToken();
     if (!token) return;
+    const params = new URLSearchParams({
+      startDate: this.reportStartDate(),
+      endDate: this.reportEndDate()
+    }).toString();
 
-    this.http.get(`http://localhost:3000/measurements/report/${id}`, {
+    this.http.get(`http://localhost:3000/measurements/report/${id}?${params}`, {
       headers: { Authorization: `Bearer ${token}` },
       responseType: 'text'
     }).subscribe({
@@ -131,7 +149,7 @@ export class ReportsComponent implements OnInit {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `Rapport_${name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.csv`;
+        link.download = `Rapport_${name.replace(/\s+/g, '_')}_${this.reportStartDate()}_${this.reportEndDate()}.csv`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -143,13 +161,24 @@ export class ReportsComponent implements OnInit {
     });
   }
 
+  loadReportDateRange() {
+    // Cette méthode est prête pour un futur aperçu de rapport.
+    console.log('Intervalle rapport sélectionné', this.reportStartDate(), this.reportEndDate());
+  }
+
   downloadPDF(id: number, name: string) {
     const token = this.auth.getToken();
     if (!token) return;
+    const params = new URLSearchParams({
+      startDate: this.reportStartDate(),
+      endDate: this.reportEndDate(),
+      format: 'pdf',
+      ts: Date.now().toString()
+    }).toString();
 
     // Fetch HTML content and download as PDF (HTML file that can be printed to PDF)
-    this.http.get(`http://localhost:3000/measurements/report/${id}?format=pdf`, {
-      headers: { Authorization: `Bearer ${token}` },
+    this.http.get(`http://localhost:3000/measurements/report/${id}?${params}`, {
+      headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
       responseType: 'text'
     }).subscribe({
       next: (htmlContent: string) => {
@@ -157,7 +186,7 @@ export class ReportsComponent implements OnInit {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `Rapport_${name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf.html`;
+        link.download = `Rapport_${name.replace(/\s+/g, '_')}_${this.reportStartDate()}_${this.reportEndDate()}.pdf.html`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

@@ -79,10 +79,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private showAlertNotification(alert: any) {
     this.alertNotificationCount.update(count => count + 1);
-    const alertIndex = this.alertNotificationCount();
     const dateStr = new Date(alert.timestamp).toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit' });
     const timeStr = new Date(alert.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const message = `ALERTE ${alertIndex} / ${this.alertNotificationCount()} : ${alert.message} sur ${alert.assetName} – ${alert.value}A (Seuil ${alert.threshold}A)`;
+    const message = `ALERTE : ${alert.message} sur ${alert.assetName} – ${alert.value}A (Seuil ${alert.threshold}A)`;
 
     this.notificationMessage.set(message);
     this.showNotification.set(true);

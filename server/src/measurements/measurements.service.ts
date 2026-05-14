@@ -1,38 +1,45 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { DATABASE_CONNECTION } from '../db/database.provider';
 import * as schema from '../db/schema';
-import { desc, eq, sql, and, gte, inArray } from 'drizzle-orm';
+import { desc, eq, sql, and, gte, lt, inArray } from 'drizzle-orm';
 
 @Injectable()
 export class MeasurementsService {
   constructor(@Inject(DATABASE_CONNECTION) private db: any) {}
 
   async create(data: any) {
-  return await this.db.insert(schema.measurements).values({
-    assetId: Number(data.assetId),
+    const timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
+    const inserted = await this.db.insert(schema.measurements).values({
+      assetId: Number(data.assetId),
 
-    V1N: Number(data.V1N),
-    V2N: Number(data.V2N),
-    V3N: Number(data.V3N),
+      V1N: Number(data.V1N),
+      V2N: Number(data.V2N),
+      V3N: Number(data.V3N),
 
-    V12: Number(data.V12),
-    V23: Number(data.V23),
-    V31: Number(data.V31),
+      V12: Number(data.V12),
+      V23: Number(data.V23),
+      V31: Number(data.V31),
 
-    I1: Number(data.I1),
-    I2: Number(data.I2),
-    I3: Number(data.I3),
+      I1: Number(data.I1),
+      I2: Number(data.I2),
+      I3: Number(data.I3),
 
-    TKW: Number(data.TKW),
-    IKWH: Number(data.IKWH),
+      TKW: Number(data.TKW),
+      IKWH: Number(data.IKWH),
 
-    HZ: Number(data.HZ),
-    PF: Number(data.PF) || Number(data.cos_phi) || 0.95,
-    KVAH: Number(data.KVAH),
+      HZ: Number(data.HZ),
+      PF: Number(data.PF) || Number(data.cos_phi) || 0.95,
+      KVAH: Number(data.KVAH),
 
-    timestamp: new Date()
-  }).returning();
-}
+      timestamp,
+    }).returning();
+
+    const month = timestamp.getMonth() + 1;
+    const year = timestamp.getFullYear();
+    await this.saveInvoice(Number(data.assetId), month, year);
+
+    return inserted;
+  }
 
   async findLatest(assetId: number) {
     const allAssets = await this.db.select().from(schema.assets);
@@ -78,10 +85,21 @@ export class MeasurementsService {
       const targetIds = getAllDescendantIds(assetId);
       if (targetIds.length === 0) return [];
       const startDate = new Date();
-      let sqlInterval = period === 'day' ? 'hour' : 'day';
-      if (period === 'week') startDate.setDate(startDate.getDate() - 7);
-      else if (period === 'month') startDate.setDate(startDate.getDate() - 30);
-      else startDate.setHours(startDate.getHours() - 24);
+      let sqlInterval = 'day';
+
+      if (period === 'day') {
+        sqlInterval = 'hour';
+        startDate.setHours(startDate.getHours() - 24);
+      } else if (period === 'week') {
+        sqlInterval = 'day';
+        startDate.setDate(startDate.getDate() - 7);
+      } else if (period === 'month') {
+        sqlInterval = 'day';
+        startDate.setDate(startDate.getDate() - 30);
+      } else {
+        sqlInterval = 'day';
+        startDate.setDate(startDate.getDate() - 30);
+      }
 
       return await this.db.select({
           time: sql`date_trunc(${sqlInterval}, ${schema.measurements.timestamp})`.as('time'),
@@ -90,6 +108,66 @@ export class MeasurementsService {
           avgcurrent: sql`cast(avg((coalesce(${schema.measurements.I1},0) + coalesce(${schema.measurements.I2},0) + coalesce(${schema.measurements.I3},0)) / 3) as float)`.as('avgcurrent'),
         }).from(schema.measurements)
         .where(and(inArray(schema.measurements.assetId, targetIds), gte(schema.measurements.timestamp, startDate)))
+        .groupBy(sql`1`).orderBy(sql`1`);
+    } catch (error) { return []; }
+  }
+
+  private chooseGroupingUnit(startDate: Date, endDate: Date) {
+    const durationMs = endDate.getTime() - startDate.getTime();
+    const dayCount = durationMs / (1000 * 60 * 60 * 24) + 1;
+    if (dayCount <= 1.5) return 'hour';
+    if (dayCount <= 92) return 'day';
+    return 'month';
+  }
+
+  private parseIsoDate(dateStr: string | undefined): Date | null {
+    if (!dateStr) return null;
+    const parts = dateStr.trim().split('-').map(Number);
+    if (parts.length !== 3 || parts.some(p => !Number.isFinite(p))) return null;
+    const [year, month, day] = parts;
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
+
+  async findHistoryInterval(assetId: number, startDateStr: string, endDateStr: string) {
+    try {
+      const allAssets = await this.db.select().from(schema.assets);
+      const getAllDescendantIds = (id: number): number[] => {
+        const children = allAssets.filter(a => a.parentId === id);
+        let ids = [id];
+        for (const child of children) { ids = [...ids, ...getAllDescendantIds(child.id)]; }
+        return ids;
+      };
+      const targetIds = getAllDescendantIds(assetId);
+      if (targetIds.length === 0) return [];
+
+      const startDate = this.parseIsoDate(startDateStr);
+      const endDate = this.parseIsoDate(endDateStr);
+      if (!startDate || !endDate) return [];
+
+      const normalizedStart = new Date(startDate);
+      const normalizedEnd = new Date(endDate);
+      normalizedStart.setHours(0, 0, 0, 0);
+      normalizedEnd.setHours(0, 0, 0, 0);
+      if (normalizedEnd < normalizedStart) {
+        return [];
+      }
+
+      const endExclusive = new Date(normalizedEnd);
+      endExclusive.setDate(endExclusive.getDate() + 1);
+      endExclusive.setHours(0, 0, 0, 0);
+      const sqlInterval = this.chooseGroupingUnit(normalizedStart, normalizedEnd);
+
+      return await this.db.select({
+          time: sql`date_trunc(${sqlInterval}, ${schema.measurements.timestamp})`.as('time'),
+          avgpower: sql`cast(avg(coalesce(${schema.measurements.TKW}, 0)) as float)`.as('avgpower'),
+          avgvoltage: sql`cast(avg((coalesce(${schema.measurements.V1N},230) + coalesce(${schema.measurements.V2N},230) + coalesce(${schema.measurements.V3N},230)) / 3) as float)`.as('avgvoltage'),
+          avgcurrent: sql`cast(avg((coalesce(${schema.measurements.I1},0) + coalesce(${schema.measurements.I2},0) + coalesce(${schema.measurements.I3},0)) / 3) as float)`.as('avgcurrent'),
+        }).from(schema.measurements)
+        .where(and(
+          inArray(schema.measurements.assetId, targetIds),
+          gte(schema.measurements.timestamp, normalizedStart),
+          lt(schema.measurements.timestamp, endExclusive)
+        ))
         .groupBy(sql`1`).orderBy(sql`1`);
     } catch (error) { return []; }
   }
@@ -109,12 +187,146 @@ export class MeasurementsService {
     return result[0] || null;
   }
 
-  async calculateBilling(assetId: number) {
-    const data = await this.findHistory(assetId, 'month');
-    const totalPower = data.reduce((acc, curr) => acc + (curr.avgpower || 0), 0);
+  private async getAssetAndDescendantIds(assetId: number): Promise<number[]> {
+    const allAssets = await this.db.select().from(schema.assets);
+    const findChildren = (id: number): number[] => {
+      const children = allAssets.filter(a => a.parentId === id);
+      let ids = [id];
+      for (const child of children) { ids = [...ids, ...findChildren(child.id)]; }
+      return ids;
+    };
+    return findChildren(assetId);
+  }
+
+  async calculateBilling(assetId: number, month?: number, year?: number) {
+    const targetIds = await this.getAssetAndDescendantIds(assetId);
+    const startDate = new Date();
+    const endDate = new Date();
+
+    if (month && year) {
+      startDate.setFullYear(year, month - 1, 1);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setFullYear(year, month - 1, 1);
+      endDate.setMonth(endDate.getMonth() + 1);
+      endDate.setHours(0, 0, 0, 0);
+    } else {
+      startDate.setDate(startDate.getDate() - 30);
+    }
+
+    const dailyData = await this.db.select({
+      avgpower: sql`cast(avg(coalesce(${schema.measurements.TKW}, 0)) as float)`.as('avgpower')
+    }).from(schema.measurements)
+      .where(and(
+        inArray(schema.measurements.assetId, targetIds),
+        gte(schema.measurements.timestamp, startDate),
+        lt(schema.measurements.timestamp, endDate)
+      ))
+      .groupBy(sql`date_trunc('day', ${schema.measurements.timestamp})`)
+      .orderBy(sql`1`);
+
+    if (!dailyData || dailyData.length === 0) {
+      return {
+        activeEnergy: 0,
+        rateJour: 0,
+        ratePointeMatin: 0,
+        rateSoir: 0,
+        rateNuit: 0,
+        primePuissance: 0,
+        tva: 0,
+        municipal: 0,
+        month: month || null,
+        year: year || null
+      };
+    }
+
+    const totalPower = dailyData.reduce((acc, curr) => acc + (curr.avgpower || 0), 0);
     return {
       activeEnergy: totalPower * 24,
-      rateJour: 0.290, ratePointeMatin: 0.417, rateSoir: 0.377, rateNuit: 0.222, primePuissance: 22000.000, tva: 0.19, municipal: 0.005
+      rateJour: 0.290,
+      ratePointeMatin: 0.417,
+      rateSoir: 0.377,
+      rateNuit: 0.222,
+      primePuissance: 22000.000,
+      tva: 0.19,
+      municipal: 0.005,
+      month: month || null,
+      year: year || null
     };
+  }
+
+  private calculateInvoiceTotal(billing: any) {
+    const energyPrice = (billing.activeEnergy * 0.4 * billing.rateJour) +
+                        (billing.activeEnergy * 0.2 * billing.ratePointeMatin) +
+                        (billing.activeEnergy * 0.4 * billing.rateNuit);
+    const tva = (energyPrice + billing.primePuissance) * billing.tva;
+    return {
+      subtotal: energyPrice,
+      tva,
+      totalAmount: energyPrice + billing.primePuissance + tva
+    };
+  }
+
+  private normalizeMonthYear(month?: number, year?: number) {
+    const now = new Date();
+    return {
+      month: month && month >= 1 && month <= 12 ? month : now.getMonth() + 1,
+      year: year && year >= 2000 ? year : now.getFullYear()
+    };
+  }
+
+  async saveInvoice(assetId: number, month: number, year: number) {
+    const billing = await this.calculateBilling(assetId, month, year);
+    const totals = this.calculateInvoiceTotal(billing);
+    const existing = await this.db.select({ id: schema.facture.id })
+      .from(schema.facture)
+      .where(and(
+        eq(schema.facture.assetId, assetId),
+        eq(schema.facture.month, month),
+        eq(schema.facture.year, year)
+      ));
+
+    const invoiceData = {
+      assetId,
+      activeEnergy: billing.activeEnergy,
+      rateJour: billing.rateJour,
+      ratePointeMatin: billing.ratePointeMatin,
+      rateSoir: billing.rateSoir,
+      rateNuit: billing.rateNuit,
+      primePuissance: billing.primePuissance,
+      tva: billing.tva,
+      municipal: billing.municipal,
+      totalAmount: totals.totalAmount,
+      month,
+      year,
+      timestamp: new Date()
+    };
+
+    if (existing.length > 0) {
+      await this.db.update(schema.facture).set(invoiceData).where(eq(schema.facture.id, existing[0].id));
+      return { id: existing[0].id, ...invoiceData };
+    }
+
+    const [created] = await this.db.insert(schema.facture).values(invoiceData).returning();
+    return created;
+  }
+
+  async getInvoice(assetId: number, month?: number, year?: number) {
+    const normalized = this.normalizeMonthYear(month, year);
+    const targetMonth = normalized.month;
+    const targetYear = normalized.year;
+
+    return this.saveInvoice(assetId, targetMonth, targetYear);
+  }
+
+  async deleteAlert(alertId: number) {
+    try {
+      console.log('🗑️ Suppression alerte ID:', alertId);
+      const result = await this.db.delete(schema.alerts).where(eq(schema.alerts.id, alertId));
+      console.log('✅ Alerte supprimée avec succès:', result);
+      return { success: true, message: 'Alerte supprimée', id: alertId };
+    } catch (error) {
+      console.error('❌ Erreur suppression alerte:', error);
+      throw error;
+    }
   }
 }

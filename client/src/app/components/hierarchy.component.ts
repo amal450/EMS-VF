@@ -26,6 +26,12 @@ export class HierarchyComponent implements OnInit {
   showDeleteAssetModal = signal(false);
   assetToDeleteName = signal('');
   
+  // États de pliage/dépliage
+  collapsedSites = signal<Set<number>>(new Set());
+  collapsedTgbts = signal<Set<number>>(new Set());
+  collapsedArmoires = signal<Set<number>>(new Set());
+  collapsedLignes = signal<Set<number>>(new Set());
+  
   assetForm = signal({ 
     id: null as number | null, 
     name: '', 
@@ -65,6 +71,63 @@ export class HierarchyComponent implements OnInit {
         this.isLoading.set(false);
       }
     });
+  }
+
+  // Fonctions de pliage/dépliage
+  toggleSite(siteId: number) {
+    const currentSet = this.collapsedSites();
+    if (currentSet.has(siteId)) {
+      currentSet.delete(siteId);
+    } else {
+      currentSet.add(siteId);
+    }
+    this.collapsedSites.set(new Set(currentSet));
+  }
+
+  isSiteCollapsed(siteId: number): boolean {
+    return this.collapsedSites().has(siteId);
+  }
+
+  toggleTgbt(tgbtId: number) {
+    const currentSet = this.collapsedTgbts();
+    if (currentSet.has(tgbtId)) {
+      currentSet.delete(tgbtId);
+    } else {
+      currentSet.add(tgbtId);
+    }
+    this.collapsedTgbts.set(new Set(currentSet));
+  }
+
+  isTgbtCollapsed(tgbtId: number): boolean {
+    return this.collapsedTgbts().has(tgbtId);
+  }
+
+  toggleArmoire(armoireId: number) {
+    const currentSet = this.collapsedArmoires();
+    if (currentSet.has(armoireId)) {
+      currentSet.delete(armoireId);
+    } else {
+      currentSet.add(armoireId);
+    }
+    this.collapsedArmoires.set(new Set(currentSet));
+  }
+
+  isArmoireCollapsed(armoireId: number): boolean {
+    return this.collapsedArmoires().has(armoireId);
+  }
+
+  toggleLigne(ligneId: number) {
+    const currentSet = this.collapsedLignes();
+    if (currentSet.has(ligneId)) {
+      currentSet.delete(ligneId);
+    } else {
+      currentSet.add(ligneId);
+    }
+    this.collapsedLignes.set(new Set(currentSet));
+  }
+
+  isLigneCollapsed(ligneId: number): boolean {
+    return this.collapsedLignes().has(ligneId);
   }
 
   selectAsset(asset: any) {

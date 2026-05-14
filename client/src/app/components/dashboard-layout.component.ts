@@ -18,11 +18,13 @@ import { AuthService } from '../services/auth.service';
             <span>DASHBOARD</span>
           </div>
           <div class="flex items-center gap-6" *ngIf="authService.currentUser$ | async as user">
-            <button (click)="goTo('alerts')" class="relative p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-              <span *ngIf="alertCount() > 0" class="absolute top-2 right-2 min-w-[18px] h-5 px-1.5 bg-red-500 border-2 border-white rounded-full text-[10px] font-black text-white flex items-center justify-center shadow-[0_0_8px_rgba(239,68,68,0.5)]">{{ alertCount() }}</span>
-            </button>
-            <div class="h-8 w-[1px] bg-slate-200"></div>
+            <ng-container *ngIf="authService.hasPermission('VIEW_ALERTS')">
+              <button (click)="goTo('alerts')" class="relative p-2.5 rounded-xl transition-all" [class.text-slate-400]="alertCount() === 0" [class.hover:text-slate-500]="alertCount() === 0" [class.hover:bg-slate-50]="alertCount() === 0" [class.text-red-500]="alertCount() > 0" [class.hover:bg-red-50]="alertCount() > 0" [ngClass]="{'animate-bounce': alertCount() > 0}">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                <span *ngIf="alertCount() > 0" class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse"></span>
+              </button>
+              <div class="h-8 w-[1px] bg-slate-200"></div>
+            </ng-container>
             <div (click)="goTo('profile')" class="flex items-center gap-3 cursor-pointer group">
               <div class="text-right hidden sm:block">
                 <p class="text-sm font-black text-cyan-400 leading-none uppercase">{{ user.username }}</p>
@@ -59,13 +61,13 @@ export class DashboardLayoutComponent implements OnInit, OnDestroy {
     if (this.refreshInterval) clearInterval(this.refreshInterval);
   }
 
-  private updateAlertCount() {
+  updateAlertCount() {
     const token = this.authService.getToken();
-    if (!token) { this.alertCount.set(0); return; }
+    if (!token || !this.authService.hasPermission('VIEW_ALERTS')) { this.alertCount.set(0); return; }
     this.http.get<any[]>('http://localhost:3000/measurements/alerts/all', {
       headers: { Authorization: `Bearer ${token}` }
     }).subscribe({
-      next: alerts => this.alertCount.set(alerts?.length || 0),
+      next: alerts => this.alertCount.set(Math.min(alerts?.length || 0, 17)),
       error: () => this.alertCount.set(0)
     });
   }

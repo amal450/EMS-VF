@@ -64,10 +64,19 @@ export const thresholds = pgTable("thresholds", {
 });
 
 // NOUVELLE TABLE POUR LE SPRINT FINAL
-export const invoices = pgTable("invoices", {
+export const facture = pgTable("facture", {
   id: serial("id").primaryKey(),
   assetId: integer("asset_id").notNull(),
+  activeEnergy: doublePrecision("active_energy").notNull(),
+  rateJour: doublePrecision("rate_jour").notNull(),
+  ratePointeMatin: doublePrecision("rate_pointe_matin").notNull(),
+  rateSoir: doublePrecision("rate_soir").notNull(),
+  rateNuit: doublePrecision("rate_nuit").notNull(),
+  primePuissance: doublePrecision("prime_puissance").notNull(),
+  tva: doublePrecision("tva").notNull(),
+  municipal: doublePrecision("municipal").notNull(),
   totalAmount: doublePrecision("total_amount").notNull(),
-  month: text("month").notNull(),
+  month: integer("month").notNull(),
+  year: integer("year").notNull(),
   timestamp: timestamp("timestamp").defaultNow(),
 });

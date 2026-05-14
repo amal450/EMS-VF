@@ -55,9 +55,15 @@
         
         <!-- CARTE SITE -->
         <div class="bg-white rounded-3xl p-6 border-2 border-cyan-100/50 shadow-[0_0_15px_rgba(6,182,212,0.1)] flex items-center justify-between transition-all">
-          <div class="cursor-pointer" (click)="selectAsset(site)">
-            <h3 class="text-xl font-black text-slate-900 uppercase tracking-tight">{{ site.name }}</h3>
-            <p class="text-[10px] font-bold text-cyan-500 tracking-widest uppercase">SITE • ID: {{ site.id }}</p>
+          <div class="cursor-pointer flex items-center gap-3" (click)="toggleSite(site.id)">
+            <!-- Icône Chevron -->
+            <svg class="w-5 h-5 text-cyan-500 transition-transform duration-200" [class.rotate-90]="!isSiteCollapsed(site.id)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path>
+            </svg>
+            <div (click)="selectAsset(site); $event.stopPropagation()">
+              <h3 class="text-xl font-black text-slate-900 uppercase tracking-tight">{{ site.name }}</h3>
+              <p class="text-[10px] font-bold text-cyan-500 tracking-widest uppercase">SITE • ID: {{ site.id }}</p>
+            </div>
           </div>
           <div *ngIf="authService.isAdmin()" class="flex gap-3">
             <button (click)="openAdd(site,'TGBT')" class="px-5 py-2 bg-blue-500/10 text-blue-600 border border-blue-500/20 rounded-full font-black text-[10px] uppercase hover:bg-blue-600 hover:text-white transition-all">Ajouter</button>
@@ -66,58 +72,84 @@
           </div>
         </div>
 
-        <!-- TGBT -->
-        <div class="ml-12 space-y-4" *ngFor="let tgbt of site.children">
-          <div class="bg-white/50 rounded-2xl p-5 border-2 border-purple-100 shadow-[0_0_15px_rgba(168,85,247,0.08)] flex items-center justify-between transition-all">
-            <div class="cursor-pointer" (click)="selectAsset(tgbt)">
-              <h4 class="text-lg font-bold text-slate-800">{{ tgbt.name }}</h4>
-              <p class="text-[9px] font-bold text-purple-400 uppercase tracking-widest">TGBT</p>
-            </div>
-            <div *ngIf="authService.isAdmin()" class="flex gap-2">
-              <button (click)="openAdd(tgbt,'ARMOIRE')" class="px-4 py-1.5 bg-blue-500/10 text-blue-600 border border-blue-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-blue-600 hover:text-white transition-all">Ajouter</button>
-              <button (click)="openEdit(tgbt)" class="px-4 py-1.5 bg-purple-500/10 text-purple-600 border border-purple-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
-              <button (click)="askDelete(tgbt)" class="px-4 py-1.5 bg-pink-500/10 text-pink-600 border border-pink-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
-            </div>
-          </div>
-
-          <!-- ARMOIRE -->
-          <div class="ml-12 space-y-4" *ngFor="let arm of tgbt.children">
-            <div class="bg-white/40 rounded-2xl p-5 border-2 border-orange-100 shadow-[0_0_15px_rgba(245,158,11,0.08)] flex items-center justify-between transition-all">
-              <div class="cursor-pointer" (click)="selectAsset(arm)">
-                <h5 class="text-md font-bold text-slate-800">{{ arm.name }}</h5>
-                <p class="text-[9px] font-bold text-orange-400 uppercase tracking-widest">ARMOIRE</p>
+        <!-- TGBT (affiché seulement si non plié) -->
+        <div class="ml-12 space-y-4 mt-6" *ngIf="!isSiteCollapsed(site.id)">
+          <div *ngFor="let tgbt of site.children">
+            <div class="bg-white/50 rounded-2xl p-5 border-2 border-purple-100 shadow-[0_0_15px_rgba(168,85,247,0.08)] flex items-center justify-between transition-all">
+              <div class="cursor-pointer flex items-center gap-3" (click)="toggleTgbt(tgbt.id)">
+                <!-- Icône Chevron -->
+                <svg class="w-4 h-4 text-purple-500 transition-transform duration-200" [class.rotate-90]="!isTgbtCollapsed(tgbt.id)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path>
+                </svg>
+                <div (click)="selectAsset(tgbt); $event.stopPropagation()">
+                  <h4 class="text-lg font-bold text-slate-800">{{ tgbt.name }}</h4>
+                  <p class="text-[9px] font-bold text-purple-400 uppercase tracking-widest">TGBT</p>
+                </div>
               </div>
               <div *ngIf="authService.isAdmin()" class="flex gap-2">
-                <button (click)="openAdd(arm,'LIGNE')" class="px-4 py-1.5 bg-blue-500/10 text-blue-600 border border-blue-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-blue-600 hover:text-white transition-all">Ajouter</button>
-                <button (click)="openEdit(arm)" class="px-4 py-1.5 bg-purple-500/10 text-purple-600 border border-purple-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
-                <button (click)="askDelete(arm)" class="px-4 py-1.5 bg-pink-500/10 text-pink-600 border border-pink-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
+                <button (click)="openAdd(tgbt,'ARMOIRE')" class="px-4 py-1.5 bg-blue-500/10 text-blue-600 border border-blue-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-blue-600 hover:text-white transition-all">Ajouter</button>
+                <button (click)="openEdit(tgbt)" class="px-4 py-1.5 bg-purple-500/10 text-purple-600 border border-purple-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
+                <button (click)="askDelete(tgbt)" class="px-4 py-1.5 bg-pink-500/10 text-pink-600 border border-pink-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
               </div>
             </div>
 
-            <!-- LIGNE -->
-            <div class="ml-12 space-y-3" *ngFor="let ligne of arm.children">
-              <div class="bg-white/30 rounded-xl p-4 border-2 border-emerald-100/50 shadow-sm flex items-center justify-between transition-all">
-                <div class="cursor-pointer" (click)="selectAsset(ligne)">
-                  <h6 class="text-sm font-bold text-slate-700">{{ ligne.name }}</h6>
-                  <p class="text-[8px] font-bold text-emerald-400 uppercase">LIGNE</p>
-                </div>
-                <div *ngIf="authService.isAdmin()" class="flex gap-2">
-                  <button (click)="openAdd(ligne,'EQUIPEMENT')" class="px-3 py-1 bg-blue-500/10 text-blue-600 border border-blue-500/10 rounded-full font-bold text-[8px] uppercase hover:bg-blue-600 hover:text-white transition-all">Ajouter</button>
-                  <button (click)="openEdit(ligne)" class="px-3 py-1 bg-purple-500/10 text-purple-600 border border-purple-500/10 rounded-full font-bold text-[8px] uppercase hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
-                  <button (click)="askDelete(ligne)" class="px-3 py-1 bg-pink-500/10 text-pink-600 border border-pink-500/10 rounded-full font-bold text-[8px] uppercase hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
-                </div>
-              </div>
-
-              <!-- ÉQUIPEMENT -->
-              <div class="ml-12 space-y-2" *ngFor="let eq of ligne.children">
-                <div class="bg-white/20 rounded-xl p-3 border-2 border-pink-100/30 shadow-sm flex items-center justify-between transition-all">
-                  <div class="cursor-pointer" (click)="selectAsset(eq)">
-                    <span class="text-xs font-bold text-slate-600 italic hover:text-blue-500">{{ eq.name }}</span>
-                    <p class="text-[8px] font-black text-pink-400 uppercase tracking-widest mt-0.5">Équipement</p>
+            <!-- ARMOIRE (affiché seulement si TGBT non plié) -->
+            <div class="ml-12 space-y-4 mt-4" *ngIf="!isTgbtCollapsed(tgbt.id)">
+              <div *ngFor="let arm of tgbt.children">
+                <div class="bg-white/40 rounded-2xl p-5 border-2 border-orange-100 shadow-[0_0_15px_rgba(245,158,11,0.08)] flex items-center justify-between transition-all">
+                  <div class="cursor-pointer flex items-center gap-3" (click)="toggleArmoire(arm.id)">
+                    <!-- Icône Chevron -->
+                    <svg class="w-4 h-4 text-orange-500 transition-transform duration-200" [class.rotate-90]="!isArmoireCollapsed(arm.id)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                    <div (click)="selectAsset(arm); $event.stopPropagation()">
+                      <h5 class="text-md font-bold text-slate-800">{{ arm.name }}</h5>
+                      <p class="text-[9px] font-bold text-orange-400 uppercase tracking-widest">ARMOIRE</p>
+                    </div>
                   </div>
                   <div *ngIf="authService.isAdmin()" class="flex gap-2">
-                    <button (click)="openEdit(eq)" class="px-3 py-1 bg-purple-500/10 text-purple-600 border border-purple-400/20 rounded-full font-bold text-[8px] uppercase hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
-                    <button (click)="askDelete(eq)" class="px-3 py-1 bg-pink-500/10 text-pink-400 border border-pink-400/20 rounded-full font-bold text-[8px] uppercase hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
+                    <button (click)="openAdd(arm,'LIGNE')" class="px-4 py-1.5 bg-blue-500/10 text-blue-600 border border-blue-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-blue-600 hover:text-white transition-all">Ajouter</button>
+                    <button (click)="openEdit(arm)" class="px-4 py-1.5 bg-purple-500/10 text-purple-600 border border-purple-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
+                    <button (click)="askDelete(arm)" class="px-4 py-1.5 bg-pink-500/10 text-pink-600 border border-pink-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
+                  </div>
+                </div>
+
+                <!-- LIGNE (affiché seulement si Armoire non pliée) -->
+                <div class="ml-12 space-y-3 mt-3" *ngIf="!isArmoireCollapsed(arm.id)">
+                  <div *ngFor="let ligne of arm.children">
+                    <div class="bg-white/30 rounded-xl p-4 border-2 border-emerald-100/50 shadow-sm flex items-center justify-between transition-all">
+                      <div class="cursor-pointer flex items-center gap-3" (click)="toggleLigne(ligne.id)">
+                        <!-- Icône Chevron -->
+                        <svg class="w-3.5 h-3.5 text-emerald-500 transition-transform duration-200" [class.rotate-90]="!isLigneCollapsed(ligne.id)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                        <div (click)="selectAsset(ligne); $event.stopPropagation()">
+                          <h6 class="text-sm font-bold text-slate-700">{{ ligne.name }}</h6>
+                          <p class="text-[8px] font-bold text-emerald-400 uppercase">LIGNE</p>
+                        </div>
+                      </div>
+                      <div *ngIf="authService.isAdmin()" class="flex gap-2">
+                        <button (click)="openAdd(ligne,'EQUIPEMENT')" class="px-3 py-1 bg-blue-500/10 text-blue-600 border border-blue-500/10 rounded-full font-bold text-[8px] uppercase hover:bg-blue-600 hover:text-white transition-all">Ajouter</button>
+                        <button (click)="openEdit(ligne)" class="px-3 py-1 bg-purple-500/10 text-purple-600 border border-purple-500/10 rounded-full font-bold text-[8px] uppercase hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
+                        <button (click)="askDelete(ligne)" class="px-3 py-1 bg-pink-500/10 text-pink-600 border border-pink-500/10 rounded-full font-bold text-[8px] uppercase hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
+                      </div>
+                    </div>
+
+                    <!-- ÉQUIPEMENT (affiché seulement si Ligne non pliée) -->
+                    <div class="ml-12 space-y-2 mt-2" *ngIf="!isLigneCollapsed(ligne.id)">
+                      <div *ngFor="let eq of ligne.children">
+                        <div class="bg-white/20 rounded-xl p-3 border-2 border-pink-100/30 shadow-sm flex items-center justify-between transition-all">
+                          <div class="cursor-pointer" (click)="selectAsset(eq)">
+                            <span class="text-xs font-bold text-slate-600 italic hover:text-blue-500">{{ eq.name }}</span>
+                            <p class="text-[8px] font-black text-pink-400 uppercase tracking-widest mt-0.5">Équipement</p>
+                          </div>
+                          <div *ngIf="authService.isAdmin()" class="flex gap-2">
+                            <button (click)="openEdit(eq)" class="px-3 py-1 bg-purple-500/10 text-purple-600 border border-purple-400/20 rounded-full font-bold text-[8px] uppercase hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
+                            <button (click)="askDelete(eq)" class="px-3 py-1 bg-pink-500/10 text-pink-400 border border-pink-400/20 rounded-full font-bold text-[8px] uppercase hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
