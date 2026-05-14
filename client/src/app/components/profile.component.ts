@@ -1,8 +1,8 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../services/auth.service';
-import { take } from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-profile',
@@ -10,8 +10,9 @@ import { take } from 'rxjs';
   imports: [CommonModule, FormsModule],
   templateUrl: './profile.component.html'
 })
-export class ProfileComponent implements OnInit {
+export class ProfileComponent implements OnInit, OnDestroy {
   public authService = inject(AuthService);
+  private destroy$ = new Subject<void>();
   
   userProfile = signal<any>({ username: 'Chargement...', email: '', role: '' });
   passwords = signal({ current: '', new: '', confirm: '' });
@@ -24,15 +25,22 @@ export class ProfileComponent implements OnInit {
   modalTheme = signal<'green' | 'purple'>('green');
 
   ngOnInit() {
-    this.authService.currentUser$.pipe(take(1)).subscribe(user => {
-      if (user) {
-        this.userProfile.set({
-          username: user.username || 'Utilisateur',
-          email: user.email || '',
-          role: user.role || 'ADMIN'
-        });
-      }
-    });
+    this.authService.currentUser$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(user => {
+        if (user) {
+          this.userProfile.set({
+            username: user.username || 'Utilisateur',
+            email: user.email || '',
+            role: user.role || 'ADMIN'
+          });
+        }
+      });
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   saveProfile() {
@@ -49,11 +57,29 @@ export class ProfileComponent implements OnInit {
       username: this.userProfile().username,
       email: this.userProfile().email
     }).pipe(take(1)).subscribe({
-      next: () => {
+      next: (res) => {
         this.isLoading.set(false);
         this.modalTheme.set('green');
         this.successMessage.set('Vos informations ont été mises à jour avec succès !');
         this.showSuccessModal.set(true);
+
+        const updatedUser = Array.isArray(res) ? res[0] : res;
+        if (updatedUser) {
+          this.userProfile.set({
+            username: updatedUser.username || this.userProfile().username,
+            email: updatedUser.email || this.userProfile().email,
+            role: updatedUser.role || this.userProfile().role
+          });
+        } else {
+          const current = this.authService.currentUserValue;
+          if (current) {
+            this.userProfile.set({
+              username: current.username || this.userProfile().username,
+              email: current.email || this.userProfile().email,
+              role: current.role || this.userProfile().role
+            });
+          }
+        }
       },
       error: (err) => {
         this.isLoading.set(false);

@@ -78,7 +78,7 @@ export class UsersService {
   async update(id: number, data: any) {
     const { id: _, permissions, ...updateData } = data;
     
-    await this.db.update(schema.users)
+    const updated = await this.db.update(schema.users)
       .set(updateData)
       .where(eq(schema.users.id, id))
       .returning();
@@ -87,6 +87,8 @@ export class UsersService {
     if (permissions) {
       await this.assignPermissions(id, permissions);
     }
+
+    return Array.isArray(updated) && updated.length > 0 ? updated[0] : updated;
   }
 
   async remove(id: number) {

@@ -60,8 +60,9 @@ export class AuthService {
   updateProfile(userId: number, data: { username: string; email: string }) {
     return this.http.patch<any>(`http://localhost:3000/users/${userId}`, data).pipe(
       tap(res => {
-        if (res && res[0]) {
-          this.updateLocalUserData(res[0]);
+        const updatedUser = Array.isArray(res) ? res[0] : res;
+        if (updatedUser) {
+          this.updateLocalUserData(updatedUser);
         }
       })
     );
