@@ -113,6 +113,46 @@ import { AssetStateService } from '../services/asset-state.service';
           </table>
         </div>
 
+        <div class="mt-10 grid gap-6 md:grid-cols-3">
+          <div class="bg-slate-50 rounded-[2rem] p-6 border border-slate-200 shadow-sm">
+            <div class="text-[10px] uppercase tracking-[0.25em] font-black text-slate-500 mb-3">Période facturée</div>
+            <div class="text-3xl font-black text-slate-900">{{ getMonthLabel(bill().month ?? selectedMonth()) }} {{ bill().year ?? selectedYear() }}</div>
+            <p class="mt-3 text-sm text-slate-500 leading-relaxed">Consommation facturée en dinars pour l'asset sélectionné.</p>
+          </div>
+
+          <div class="bg-gradient-to-r from-cyan-400 to-purple-500 text-white rounded-[2rem] p-6 shadow-[0_0_30px_rgba(59,130,246,0.18)]">
+            <div class="text-[10px] uppercase tracking-[0.25em] font-black opacity-80">Montant total TTC</div>
+            <div class="mt-4 text-4xl font-black">{{ calculateTotal() | number:'1.2-2' }}</div>
+            <div class="mt-2 text-sm opacity-80">DT</div>
+          </div>
+
+          <div class="bg-white rounded-[2rem] p-6 border border-slate-200 shadow-sm">
+            <div class="text-[10px] uppercase tracking-[0.25em] font-black text-slate-500 mb-3">Projection annuelle</div>
+            <div class="text-3xl font-black text-slate-900">{{ calculateAnnualProjection() | number:'1.2-2' }}</div>
+            <p class="mt-3 text-sm text-slate-500 leading-relaxed">Estimation sur 12 mois basée sur la consommation du mois sélectionné.</p>
+          </div>
+        </div>
+
+        <div class="mt-10 bg-white/95 rounded-[2rem] border border-white/70 shadow-[0_20px_60px_rgba(15,23,42,0.08)] p-6 backdrop-blur-xl">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div>
+              <div class="text-[10px] uppercase tracking-[0.25em] font-black text-slate-500 mb-2">Diagramme de consommation annuelle</div>
+              <div class="text-xl font-black text-slate-900">{{ assetName() }} - {{ selectedYear() }}</div>
+            </div>
+            <div class="text-sm text-slate-500">Montant TTC par mois (DT)</div>
+          </div>
+
+          <div class="mx-auto max-w-[1080px] grid grid-cols-12 gap-2 items-end h-64">
+            <div *ngFor="let item of annualBilling()" class="flex h-full flex-col items-center justify-end gap-1 text-center">
+              <div class="flex h-[calc(100%-3rem)] w-full max-w-[24px] items-end justify-center rounded-[999px] bg-slate-100 overflow-hidden shadow-sm">
+                <div class="w-3 rounded-t-full bg-gradient-to-t from-cyan-400 to-purple-500 transition-all" [style.height.%]="getAnnualBarHeight(item.totalAmount)"></div>
+              </div>
+              <div class="text-[10px] font-black text-slate-700">{{ getMonthShortLabel(item.month) }}</div>
+              <div class="text-[10px] text-slate-400">{{ item.totalAmount ? item.totalAmount.toFixed(0) : '0' }}</div>
+            </div>
+          </div>
+        </div>
+
         <div class="mt-8 flex justify-between items-center opacity-30 px-4">
           <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.4em]">Volt EMS Intelligence v2.0</p>
           <div class="w-24 h-px bg-slate-400"></div>
@@ -204,8 +244,11 @@ export class BillingComponent implements OnInit {
     ratePointeMatin: 0.417, 
     rateSoir: 0.377, 
     rateNuit: 0.222, 
-    primePuissance: 22000.000 
+    primePuissance: 22000.000,
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear()
   });
+  annualBilling = signal<any[]>([]);
   selectedMonth = signal<number>(new Date().getMonth() + 1);
   selectedYear = signal<number>(new Date().getFullYear());
   months = [
@@ -239,11 +282,18 @@ export class BillingComponent implements OnInit {
     const month = this.selectedMonth();
     const year = this.selectedYear();
     const url = `http://localhost:3000/measurements/billing/${id}?month=${month}&year=${year}`;
+    const annualUrl = `http://localhost:3000/measurements/billing/annual/${id}?year=${year}`;
 
     this.http.get<any>(url, {
       headers: { Authorization: `Bearer ${token}` }
     }).subscribe(res => {
       if (res) this.bill.set(res);
+    });
+
+    this.http.get<any[]>(annualUrl, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).subscribe(res => {
+      if (res) this.annualBilling.set(res);
     });
   }
 
@@ -258,12 +308,41 @@ export class BillingComponent implements OnInit {
     return (this.calculateEnergyHT() + this.bill().primePuissance) * (this.bill().tva || 0.19);
   }
 
+  calculateAnnualProjection() {
+    return this.calculateTotal() * 12;
+  }
+
+  getMonthLabel(month?: number) {
+    const entry = this.months.find(m => m.value === month);
+    return entry ? entry.label : 'Mois';
+  }
+
+  getMonthShortLabel(month?: number) {
+    const label = this.getMonthLabel(month);
+    return label.length > 3 ? label.slice(0, 3) : label;
+  }
+
+  getAnnualMaxAmount() {
+    const list = this.annualBilling();
+    return Math.max(1, ...list.map(item => Number(item.totalAmount || 0)));
+  }
+
+  getAnnualBarHeight(amount: number) {
+    const max = this.getAnnualMaxAmount();
+    return Math.min(100, Math.round((amount / max) * 100));
+  }
+
   toNumber(value: any) {
     return Number(value);
   }
 
   calculateTotal() {
     return this.calculateEnergyHT() + this.bill().primePuissance + this.calculateTVA();
+  }
+
+  getRelativeWidth(amount: number) {
+    const max = Math.max(this.calculateTotal(), this.calculateAnnualProjection(), 1);
+    return Math.min(100, (amount / max) * 100);
   }
 
   downloadPDF() {

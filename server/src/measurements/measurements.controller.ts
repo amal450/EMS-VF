@@ -56,6 +56,13 @@ export class MeasurementsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('billing/annual/:id')
+  getAnnualBilling(@Param('id') id: string, @Query('year') year?: string) {
+    const yearNum = year ? Number(year) : new Date().getFullYear();
+    return this.measurementsService.getAnnualBilling(+id, yearNum);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('billing/:id')
   async saveBilling(@Param('id') id: string, @Query('month') month?: string, @Query('year') year?: string) {
     const monthNum = month ? Number(month) : new Date().getMonth() + 1;

@@ -318,6 +318,24 @@ export class MeasurementsService {
     return this.saveInvoice(assetId, targetMonth, targetYear);
   }
 
+  async getAnnualBilling(assetId: number, year?: number) {
+    const targetYear = year && year >= 2000 ? year : new Date().getFullYear();
+    const months = Array.from({ length: 12 }, (_, i) => i + 1);
+
+    const data = await Promise.all(months.map(async (month) => {
+      const billing = await this.calculateBilling(assetId, month, targetYear);
+      const totals = this.calculateInvoiceTotal(billing);
+      return {
+        month,
+        year: targetYear,
+        activeEnergy: billing.activeEnergy,
+        totalAmount: totals.totalAmount,
+      };
+    }));
+
+    return data;
+  }
+
   async deleteAlert(alertId: number) {
     try {
       console.log('🗑️ Suppression alerte ID:', alertId);
