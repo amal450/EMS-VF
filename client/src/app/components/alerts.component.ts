@@ -1,8 +1,10 @@
-import { Component, OnInit, signal, inject } from '@angular/core';
+import { Component, OnInit, signal, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { LanguageService } from '../services/language.service';
+import { AssetStateService } from '../services/asset-state.service';
 
 @Component({
   selector: 'app-alerts',
@@ -121,22 +123,85 @@ import { LanguageService } from '../services/language.service';
     </div>
   `
 })
-export class AlertsComponent implements OnInit {
+export class AlertsComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   private auth = inject(AuthService);
+  private route = inject(ActivatedRoute);
+  private assetService = inject(AssetStateService);
   public languageService = inject(LanguageService);
   alerts = signal<any[]>([]);
   lastAlert = signal<any>(null);
   showNotification = signal<boolean>(false);
   notificationMessage = signal<string>('');
   private notificationTimeout: any;
+  private alertCheckInterval: any;
 
   ngOnInit() {
-    this.http.get<any[]>('http://localhost:3000/measurements/alerts/all', {
-      headers: { Authorization: `Bearer ${this.auth.getToken()}` }
+    // Subscribe to route URL changes to detect every navigation to this page
+    this.route.url.subscribe(() => {
+      this.route.queryParams.subscribe(params => {
+        const id = Number(params['id']);
+        if (id && !isNaN(id)) {
+          // Asset is selected - load its alerts
+          this.loadAlertsForAsset(id);
+        } else {
+          // No asset selected - clear alerts
+          this.alerts.set([]);
+          this.lastAlert.set(null);
+          this.showNotification.set(false);
+        }
+      });
+    });
+
+    // Also set up polling for asset changes from the service
+    let lastId: number | null = null;
+    this.alertCheckInterval = setInterval(() => {
+      const asset = this.assetService.selectedAsset();
+      const id = asset ? asset.id : null;
+      if (id !== lastId && id !== null) {
+        lastId = id;
+        this.loadAlertsForAsset(id);
+      } else if (id === null && lastId !== null) {
+        lastId = null;
+        this.alerts.set([]);
+        this.lastAlert.set(null);
+        this.showNotification.set(false);
+      }
+    }, 500);
+  }
+
+  ngOnDestroy() {
+    if (this.alertCheckInterval) clearInterval(this.alertCheckInterval);
+    if (this.notificationTimeout) clearTimeout(this.notificationTimeout);
+  }
+
+  private loadAlertsForAsset(assetId: number) {
+    const token = this.auth.getToken();
+    if (!token) return;
+
+    // First try exact asset alerts
+    this.http.get<any[]>(`http://localhost:3000/measurements/alerts/asset/${assetId}`, {
+      headers: { Authorization: `Bearer ${token}` }
     }).subscribe(res => {
-      this.alerts.set(res);
-      this.updateLastAlert();
+      const list = res || [];
+      if (list.length > 0) {
+        this.alerts.set(list);
+        this.updateLastAlert();
+      } else {
+        // Fallback: if exact asset has no alerts, try fetching alerts from descendants
+        this.http.get<any[]>(`http://localhost:3000/measurements/alerts/asset-descendants/${assetId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).subscribe(res2 => {
+          this.alerts.set(res2 || []);
+          this.updateLastAlert();
+        }, err2 => {
+          console.error('Error loading descendant alerts for asset:', err2);
+          this.alerts.set([]);
+        });
+      }
+    }, err => {
+      console.error('Error loading alerts for asset:', err);
+      this.alerts.set([]);
     });
   }
 

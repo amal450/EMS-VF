@@ -24,8 +24,8 @@ import { AssetStateService } from '../services/asset-state.service';
         <div class="flex items-center gap-3 no-print whitespace-nowrap">
           <div class="flex items-center gap-2 text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">
             <span>{{ languageService.translate('monthLabel') }}</span>
-            <select class="px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="selectedMonth()" (change)="onMonthChange($event)">
-              <option *ngFor="let month of months" [value]="month.value">{{ languageService.translateMonth(month.value) }}</option>
+            <select class="px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" (change)="onMonthChange($event)">
+              <option *ngFor="let month of months" [value]="month.value" [selected]="month.value === selectedMonth()">{{ languageService.translateMonth(month.value) }}</option>
             </select>
           </div>
           <div class="flex items-center gap-2 text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">
@@ -44,7 +44,7 @@ import { AssetStateService } from '../services/asset-state.service';
       </div>
 
       <!-- GRAND CADRE AVEC EFFET LUMIÈRE (Glow) -->
-      <div class="max-w-5xl mx-auto bg-white/40 backdrop-blur-md rounded-[3rem] shadow-[0_0_80px_rgba(59,130,246,0.12)] border border-white p-10 mb-12">
+      <div class="max-w-5xl mx-auto bg-white/40 backdrop-blur-md rounded-[3rem] shadow-[0_0_80px_rgba(59,130,246,0.12)] border border-white p-10 mb-12" *ngIf="assetName()">
         
         <div class="overflow-hidden rounded-[2rem] border border-white shadow-sm bg-white/30">
           <table class="w-full text-left border-collapse">
@@ -114,7 +114,7 @@ import { AssetStateService } from '../services/asset-state.service';
           </table>
         </div>
 
-        <div class="mt-10 grid gap-6 md:grid-cols-3">
+        <div class="mt-10 grid gap-6 md:grid-cols-3" *ngIf="assetName()">
           <div class="bg-slate-50 rounded-[2rem] p-6 border border-slate-200 shadow-sm">
             <div class="text-[10px] uppercase tracking-[0.25em] font-black text-slate-500 mb-3">{{ languageService.translate('billedPeriod') }}</div>
             <div class="text-3xl font-black text-slate-900">{{ getMonthLabel(selectedMonth()) }} {{ selectedYear() }}</div>
@@ -134,7 +134,7 @@ import { AssetStateService } from '../services/asset-state.service';
           </div>
         </div>
 
-        <div class="mt-10 bg-white/95 rounded-[2rem] border border-white/70 shadow-[0_20px_60px_rgba(15,23,42,0.08)] p-6 backdrop-blur-xl">
+        <div class="mt-10 bg-white/95 rounded-[2rem] border border-white/70 shadow-[0_20px_60px_rgba(15,23,42,0.08)] p-6 backdrop-blur-xl" *ngIf="assetName()">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>
               <div class="text-[10px] uppercase tracking-[0.25em] font-black text-slate-500 mb-2">{{ languageService.translate('annualConsumptionChart') }}</div>
@@ -242,24 +242,73 @@ export class BillingComponent implements OnInit {
     ratePointeMatin: 0.417, 
     rateSoir: 0.377, 
     rateNuit: 0.222, 
-    primePuissance: 22000.000,
-    month: new Date().getMonth() + 1,
-    year: new Date().getFullYear()
+    primePuissance: 0,
+    month: null,
+    year: null,
+    tva: 0
   });
   annualBilling = signal<any[]>([]);
   selectedMonth = signal<number>(new Date().getMonth() + 1);
   selectedYear = signal<number>(new Date().getFullYear());
   months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1 }));
   years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+  private assetCheckInterval: any;
 
   ngOnInit() {
-    this.loadBillingData();
+    // Do NOT load billing data at init - keep values at zero
+    // Only load when asset selection changes
+    let lastId: number | null = null;
+    this.assetCheckInterval = setInterval(() => {
+      const s = this.assetService.selectedAsset();
+      const id = s ? s.id : null;
+      if (id !== lastId && id !== null) {
+        lastId = id;
+        this.loadBillingData();
+      } else if (id === null && lastId !== null) {
+        // Asset was deselected - reset to zeros
+        lastId = null;
+        this.assetName.set('');
+        this.bill.set({ 
+          activeEnergy: 0, 
+          rateJour: 0.290, 
+          ratePointeMatin: 0.417, 
+          rateSoir: 0.377, 
+          rateNuit: 0.222, 
+          primePuissance: 0,
+          month: this.selectedMonth(),
+          year: this.selectedYear(),
+          tva: 0
+        });
+        this.annualBilling.set([]);
+      }
+    }, 500);
+  }
+
+  ngOnDestroy() {
+    if (this.assetCheckInterval) clearInterval(this.assetCheckInterval);
   }
 
   loadBillingData() {
     const selected = this.assetService.selectedAsset();
-    const id = selected ? selected.id : 3; 
-    this.assetName.set(selected ? selected.name : 'TGBT Principal');
+    if (!selected) {
+      // No asset selected: keep zeroed bill and empty annual data
+      this.assetName.set('');
+      this.bill.set({ 
+        activeEnergy: 0, 
+        rateJour: 0.290, 
+        ratePointeMatin: 0.417, 
+        rateSoir: 0.377, 
+        rateNuit: 0.222, 
+        primePuissance: 0,
+        month: this.selectedMonth(),
+        year: this.selectedYear(),
+        tva: 0
+      });
+      this.annualBilling.set([]);
+      return;
+    }
+    const id = selected.id;
+    this.assetName.set(selected.name);
 
     const token = this.authService.getToken();
     if (!token) return;

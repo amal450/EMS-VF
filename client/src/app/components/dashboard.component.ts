@@ -5,6 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { LanguageService } from '../services/language.service';
 import { ConsumptionChartComponent } from './consumption-chart.component';
+import { AssetStateService } from '../services/asset-state.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -18,6 +19,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private zone = inject(NgZone);
   public authService = inject(AuthService);
   public languageService = inject(LanguageService);
+  private assetState = inject(AssetStateService);
 
   selectedAsset = signal<any>(null);
   private monitorInterval: any;
@@ -36,14 +38,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private lastAlertId: number | null = null;
 
   ngOnInit() {
-    this.route.queryParams.subscribe(params => {
-      const id = Number(params['id']);
-      if (id && !isNaN(id)) {
-        this.zone.run(() => {
-          this.fetchAssetDetails(id);
-          this.startMonitoring(id);
-        });
-      }
+    // Subscribe to URL changes to ensure we detect every navigation to this page
+    this.route.url.subscribe(() => {
+      this.route.queryParams.subscribe(params => {
+        const id = Number(params['id']);
+        if (id && !isNaN(id)) {
+          this.zone.run(() => {
+            this.fetchAssetDetails(id);
+            this.startMonitoring(id);
+          });
+        } else {
+          // No asset selected - stop monitoring and reset all data
+          if (this.monitorInterval) clearInterval(this.monitorInterval);
+          this.lastAlertId = null;
+          this.alertNotificationCount.set(0);
+          this.showNotification.set(false);
+          this.liveData.set({
+            V1N: '000', V2N: '000', V3N: '000', V12: '000', V23: '000', V31: '000',
+            I1: '0.0', I2: '0.0', I3: '0.0', TKW: '0.00', IKWH: '0.00', HZ: '00.00', PF: '0.00',
+            timestamp: new Date()
+          });
+          this.selectedAsset.set(null);
+        }
+      });
     });
   }
 
@@ -55,6 +72,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   startMonitoring(id: number) {
     if (this.monitorInterval) clearInterval(this.monitorInterval);
+    
+    // Reset alert tracking when changing asset
+    this.lastAlertId = null;
+    this.alertNotificationCount.set(0);
+    this.showNotification.set(false);
+    
     this.monitorInterval = setInterval(() => {
       this.http.get<any>(`http://localhost:3000/measurements/latest/${id}`, {
         headers: { 'Authorization': `Bearer ${this.authService.getToken()}` }
@@ -62,22 +85,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
         if (res) this.liveData.set({ ...res, timestamp: new Date() });
       });
       // Check for new alerts
-      this.checkForNewAlerts();
+      this.checkForNewAlerts(id);
     }, 2000);
   }
 
-  ngOnDestroy() { if (this.monitorInterval) clearInterval(this.monitorInterval); }
+  ngOnDestroy() { 
+    if (this.monitorInterval) clearInterval(this.monitorInterval);
+    if (this.notificationTimeout) clearTimeout(this.notificationTimeout);
+  }
 
-  private checkForNewAlerts() {
-    // Vérifier si l'utilisateur a la permission VIEW_ALERTS
-    if (!this.authService.hasPermission('VIEW_ALERTS')) {
+  private checkForNewAlerts(assetId: number) {
+    // Vérifier si l'utilisateur a la permission VIEW_ALERTS et qu'un asset est sélectionné
+    if (!this.authService.hasPermission('VIEW_ALERTS') || !assetId) {
       return;
     }
-    
-    this.http.get<any>('http://localhost:3000/measurements/alerts/latest', {
+
+    this.http.get<any>(`http://localhost:3000/measurements/alerts/latest?assetId=${assetId}`, {
       headers: { 'Authorization': `Bearer ${this.authService.getToken()}` }
     }).subscribe(alert => {
-      if (alert && alert.id !== this.lastAlertId) {
+      if (alert && alert.id !== this.lastAlertId && alert.assetId === assetId) {
         this.lastAlertId = alert.id;
         this.showAlertNotification(alert);
       }

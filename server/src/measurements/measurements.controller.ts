@@ -33,7 +33,22 @@ export class MeasurementsController {
 
   @UseGuards(JwtAuthGuard)
   @Get('alerts/latest')
-  getLatestAlert() { return this.measurementsService.findLatestAlert(); }
+  getLatestAlert(@Query('assetId') assetId?: string) {
+    if (assetId) return this.measurementsService.findLatestAlertByAssetId(+assetId);
+    return this.measurementsService.findLatestAlert();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('alerts/asset/:assetId')
+  getAlertsByAsset(@Param('assetId') assetId: string) { 
+    return this.measurementsService.findAlertsByAssetId(+assetId); 
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('alerts/asset-descendants/:assetId')
+  getAlertsByAssetAndDescendants(@Param('assetId') assetId: string) {
+    return this.measurementsService.findAlertsByAssetAndDescendants(+assetId);
+  }
 
   @UseGuards(JwtAuthGuard)
   @Delete('alerts/:id')

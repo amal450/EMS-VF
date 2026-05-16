@@ -174,14 +174,39 @@ export class MeasurementsService {
 
   async findAllAlerts() {
     return await this.db.select({
-      id: schema.alerts.id, assetName: schema.assets.name, message: schema.alerts.message,
+      id: schema.alerts.id, assetId: schema.alerts.assetId, assetName: schema.assets.name, message: schema.alerts.message,
       value: schema.alerts.value, threshold: schema.alerts.threshold, timestamp: schema.alerts.timestamp,
     }).from(schema.alerts).leftJoin(schema.assets, eq(schema.alerts.assetId, schema.assets.id)).orderBy(desc(schema.alerts.timestamp));
   }
 
+  async findAlertsByAssetId(assetId: number) {
+    // Return alerts for the exact asset only (no descendants)
+    return await this.db.select({
+      id: schema.alerts.id, assetId: schema.alerts.assetId, assetName: schema.assets.name, message: schema.alerts.message,
+      value: schema.alerts.value, threshold: schema.alerts.threshold, timestamp: schema.alerts.timestamp,
+    }).from(schema.alerts).leftJoin(schema.assets, eq(schema.alerts.assetId, schema.assets.id)).where(eq(schema.alerts.assetId, assetId)).orderBy(desc(schema.alerts.timestamp));
+  }
+
+  async findAlertsByAssetAndDescendants(assetId: number) {
+    const targetIds = await this.getAssetAndDescendantIds(assetId);
+    if (!targetIds || targetIds.length === 0) return [];
+    return await this.db.select({
+      id: schema.alerts.id, assetId: schema.alerts.assetId, assetName: schema.assets.name, message: schema.alerts.message,
+      value: schema.alerts.value, threshold: schema.alerts.threshold, timestamp: schema.alerts.timestamp,
+    }).from(schema.alerts).leftJoin(schema.assets, eq(schema.alerts.assetId, schema.assets.id)).where(inArray(schema.alerts.assetId, targetIds)).orderBy(desc(schema.alerts.timestamp));
+  }
+
+  async findLatestAlertByAssetId(assetId: number) {
+    const result = await this.db.select({
+      id: schema.alerts.id, assetId: schema.alerts.assetId, assetName: schema.assets.name, message: schema.alerts.message,
+      value: schema.alerts.value, threshold: schema.alerts.threshold, timestamp: schema.alerts.timestamp,
+    }).from(schema.alerts).leftJoin(schema.assets, eq(schema.alerts.assetId, schema.assets.id)).where(eq(schema.alerts.assetId, assetId)).orderBy(desc(schema.alerts.timestamp)).limit(1);
+    return result[0] || null;
+  }
+
   async findLatestAlert() {
     const result = await this.db.select({
-      id: schema.alerts.id, assetName: schema.assets.name, message: schema.alerts.message,
+      id: schema.alerts.id, assetId: schema.alerts.assetId, assetName: schema.assets.name, message: schema.alerts.message,
       value: schema.alerts.value, threshold: schema.alerts.threshold, timestamp: schema.alerts.timestamp,
     }).from(schema.alerts).leftJoin(schema.assets, eq(schema.alerts.assetId, schema.assets.id)).orderBy(desc(schema.alerts.timestamp)).limit(1);
     return result[0] || null;
