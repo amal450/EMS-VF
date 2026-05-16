@@ -4,16 +4,20 @@
   <div class="mb-10 flex justify-between items-end">
     <div>
       <h1 class="text-4xl font-black bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent tracking-tight mb-2 uppercase italic">
-        Gestion des Utilisateurs
+        {{ languageService.translate('userManagementTitle') }}
       </h1>
-      <p class="text-slate-500 font-medium italic">Administrez les accès et les rôles de la plateforme EMS.</p>
+      <p class="text-slate-500 font-medium italic">{{ languageService.translate('userManagementSubtitle') }}</p>
     </div>
 
     <!-- BOUTON NOUVEL UTILISATEUR -->
     <button (click)="openAdd()" 
             class="bg-gradient-to-r from-cyan-500/80 to-purple-600/80 backdrop-blur-md text-white px-8 py-3 rounded-2xl font-bold shadow-[0_0_25px_rgba(6,182,212,0.4)] transition-all hover:scale-105 flex items-center gap-2 border border-white/20">
-      <span class="text-xl">+</span> Nouvel Utilisateur
+      <span class="text-xl">+</span> {{ languageService.translate('newUser') }}
     </button>
+  </div>
+
+  <div *ngIf="message()" class="mb-6 rounded-2xl border px-5 py-4 text-sm font-semibold" [class.bg-emerald-50]="messageType() === 'success'" [class.text-emerald-700]="messageType() === 'success'" [class.border-emerald-200]="messageType() === 'success'" [class.bg-red-50]="messageType() === 'error'" [class.text-red-700]="messageType() === 'error'" [class.border-red-200]="messageType() === 'error'">
+    {{ message() }}
   </div>
 
   <!-- Grand Conteneur Glow -->
@@ -21,10 +25,10 @@
     <div class="space-y-6">
       <!-- Légende -->
       <div class="grid grid-cols-12 px-10 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-        <div class="col-span-3">Utilisateur</div>
-        <div class="col-span-3">Email</div>
-        <div class="col-span-3 text-center">Rôle</div>
-        <div class="col-span-3 text-right">Actions</div>
+        <div class="col-span-3">{{ languageService.translate('userLabel') }}</div>
+        <div class="col-span-3">{{ languageService.translate('email') }}</div>
+        <div class="col-span-3 text-center">{{ languageService.translate('roleLabel') }}</div>
+        <div class="col-span-3 text-right">{{ languageService.translate('actionsLabel') }}</div>
       </div>
 
       <!-- Liste des Utilisateurs -->
@@ -46,13 +50,13 @@
                 (user.role === 'RESPONSABLE_ENERGIE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
                  user.role === 'ADMIN' ? 'bg-purple-50 text-purple-600 border-purple-100' : 
                  'bg-blue-50 text-blue-600 border-blue-100')">
-            {{ user.role === 'RESPONSABLE_ENERGIE' ? 'Resp_Energie' : user.role === 'ADMIN' ? 'Administrateur' : (user.role === 'AGENT' || user.role === 'UTILISATEUR') ? 'Agent' : user.role }}
+            {{ languageService.translateRole(user.role) }}
           </span>
         </div>
 
         <div class="col-span-3 flex justify-end gap-3 px-2">
-          <button (click)="openEdit(user)" class="px-5 py-2 bg-purple-500/10 text-purple-600 border border-purple-500/20 rounded-full font-black text-[10px] uppercase shadow-sm hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
-          <button (click)="askDelete(user)" class="px-5 py-2 bg-pink-500/10 text-pink-600 border border-pink-500/20 rounded-full font-black text-[10px] uppercase shadow-sm hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
+          <button (click)="openEdit(user)" class="px-5 py-2 bg-purple-500/10 text-purple-600 border border-purple-500/20 rounded-full font-black text-[10px] uppercase shadow-sm hover:bg-purple-600 hover:text-white transition-all">{{ languageService.translate('edit') }}</button>
+          <button (click)="askDelete(user)" class="px-5 py-2 bg-pink-500/10 text-pink-600 border border-pink-500/20 rounded-full font-black text-[10px] uppercase shadow-sm hover:bg-pink-600 hover:text-white transition-all">{{ languageService.translate('delete') }}</button>
         </div>
       </div>
     </div>
@@ -64,36 +68,35 @@
   <div *ngIf="showUserModal()" class="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-md overflow-y-auto py-8">
     <div class="bg-white/95 backdrop-blur-xl p-8 rounded-[2.5rem] w-[480px] shadow-[0_0_50px_rgba(59,130,246,0.25)] border border-white animate-in zoom-in duration-200">
       <h2 class="text-xl font-black bg-gradient-to-r from-cyan-500 to-purple-600 bg-clip-text text-transparent mb-6 text-center uppercase tracking-tight">
-        {{ isEditMode() ? 'Modifier' : 'Nouveau Compte' }}
+        {{ isEditMode() ? languageService.translate('edit') : languageService.translate('newAccount') }}
       </h2>
       <div class="space-y-4 text-left max-h-[70vh] overflow-y-auto">
         <div>
-          <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Utilisateur</label>
+          <label class="text-[9px] font-black text-slate-400 uppercase ml-2">{{ languageService.translate('userLabel') }}</label>
           <input type="text" [(ngModel)]="userForm().username" class="w-full p-3.5 bg-white border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 text-sm">
         </div>
         <div>
-          <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Email</label>
+          <label class="text-[9px] font-black text-slate-400 uppercase ml-2">{{ languageService.translate('email') }}</label>
           <input type="email" [(ngModel)]="userForm().email" class="w-full p-3.5 bg-white border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 text-sm">
         </div>
         <div *ngIf="!isEditMode()">
-          <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Mot de passe</label>
+          <label class="text-[9px] font-black text-slate-400 uppercase ml-2">{{ languageService.translate('password') }}</label>
           <input type="password" [(ngModel)]="userForm().password" class="w-full p-3.5 bg-white border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 text-sm">
         </div>
         <div>
-          <label class="text-[9px] font-black text-slate-400 uppercase ml-2">Rôle</label>
-          <select [(ngModel)]="userForm().role" class="w-full p-3.5 bg-white border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 appearance-none text-sm">
-            <option value="AGENT">Agent</option>
-            <option value="RESP_ENERGIE">Responsable Énergie</option>
-            <option value="ADMIN">Administrateur</option>
+          <label class="text-[9px] font-black text-slate-400 uppercase ml-2">{{ languageService.translate('roleLabel') }}</label>
+          <select [(ngModel)]="userForm().role" (change)="onRoleChange()" class="w-full p-3.5 bg-white border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 appearance-none text-sm">
+            <option value="AGENT">{{ languageService.translateRole('AGENT') }}</option>
+            <option value="RESP_ENERGIE">{{ languageService.translateRole('RESP_ENERGIE') }}</option>
           </select>
         </div>
 
         <!-- Permissions Section -->
         <div class="mt-6 pt-4 border-t border-slate-200">
-          <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block mb-3">Permissions ({{ getPermissionsByRole(userForm().role).length }})</label>
+          <label class="text-[9px] font-black text-slate-400 uppercase ml-2 block mb-3">{{ languageService.translate('permissionsLabel') }} ({{ getPermissionsByRole(userForm().role).length }})</label>
           <div class="space-y-2 bg-slate-50/50 p-3 rounded-2xl min-h-[100px]">
             <div *ngIf="getPermissionsByRole(userForm().role).length === 0" class="text-center py-8 text-slate-400 italic">
-              Aucune permission disponible pour ce rôle
+              {{ languageService.translate('noPermissions') }}
             </div>
             <div *ngFor="let perm of getPermissionsByRole(userForm().role)" class="flex items-start gap-3 p-2 hover:bg-white/50 rounded-lg transition">
               <input 
@@ -103,16 +106,16 @@
                 (change)="togglePermission(perm.id)"
                 class="w-5 h-5 mt-1 rounded cursor-pointer accent-purple-500">
               <label [for]="'perm_' + perm.id" class="flex-1 cursor-pointer">
-                <p class="font-bold text-sm text-slate-700">{{ perm.name }}</p>
-                <p class="text-xs text-slate-500">{{ perm.description }}</p>
+                <p class="font-bold text-sm text-slate-700">{{ translatePermissionName(perm) }}</p>
+                <p class="text-xs text-slate-500">{{ translatePermissionDescription(perm) }}</p>
               </label>
             </div>
           </div>
         </div>
       </div>
       <div class="flex gap-3 mt-8">
-        <button (click)="showUserModal.set(false)" class="flex-1 py-3.5 font-bold bg-slate-100 text-slate-500 rounded-2xl">Annuler</button>
-        <button (click)="saveUser()" class="flex-1 py-3.5 font-black bg-gradient-to-r from-cyan-500 to-purple-600 text-white rounded-2xl shadow-lg">Confirmer</button>
+        <button (click)="showUserModal.set(false)" class="flex-1 py-3.5 font-bold bg-slate-100 text-slate-500 rounded-2xl">{{ languageService.translate('cancel') }}</button>
+        <button (click)="saveUser()" class="flex-1 py-3.5 font-black bg-gradient-to-r from-cyan-500 to-purple-600 text-white rounded-2xl shadow-lg">{{ languageService.translate('confirm') }}</button>
       </div>
     </div>
   </div>
@@ -123,11 +126,31 @@
   <div *ngIf="showDeleteModal()" class="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-md">
     <div class="bg-white p-10 rounded-[2.5rem] w-96 text-center shadow-[0_0_50px_rgba(239,68,68,0.3)] border border-white animate-in zoom-in duration-200">
       <div class="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl font-bold border border-red-100">!</div>
-      <h3 class="text-2xl font-black text-slate-900 mb-2">Supprimer ?</h3>
-      <p class="text-sm text-slate-400 px-4 mb-8 italic text-center">Voulez-vous vraiment supprimer l'utilisateur <b>{{ userToDelete()?.username }}</b> ?</p>
+      <h3 class="text-2xl font-black text-slate-900 mb-2">{{ languageService.translate('deleteItemTitle') }}</h3>
+      <p class="text-sm text-slate-400 px-4 mb-8 italic text-center">{{ languageService.translate('confirmDeleteUser', { name: userToDelete()?.username }) }}</p>
       <div class="flex gap-4">
-        <button (click)="showDeleteModal.set(false)" class="flex-1 py-3.5 font-bold bg-slate-100 text-slate-500 rounded-2xl transition">Non</button>
-        <button (click)="confirmDelete()" class="flex-1 py-3.5 font-black bg-red-500 text-white rounded-2xl shadow-lg shadow-red-500/30 hover:bg-red-600 transition">Oui, Supprimer</button>
+        <button (click)="showDeleteModal.set(false)" class="flex-1 py-3.5 font-bold bg-slate-100 text-slate-500 rounded-2xl transition">{{ languageService.translate('no') }}</button>
+        <button (click)="confirmDelete()" class="flex-1 py-3.5 font-black bg-red-500 text-white rounded-2xl shadow-lg shadow-red-500/30 hover:bg-red-600 transition">{{ languageService.translate('yes') }}, {{ languageService.translate('delete') }}</button>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="showSuccessModal()" class="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/40 backdrop-blur-md px-4 py-8">
+    <div class="bg-white rounded-[2rem] border border-white shadow-[0_0_70px_rgba(59,130,246,0.15)] w-full max-w-xl p-8 animate-in zoom-in duration-200">
+      <div class="flex items-center justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+          <div [class]="'w-14 h-14 rounded-3xl flex items-center justify-center border shadow-sm ' + (successTheme() === 'green' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-purple-50 text-purple-700 border-purple-100')">
+            <span class="text-3xl">✓</span>
+          </div>
+          <div>
+            <h3 class="text-2xl font-black text-slate-900">{{ languageService.translate(successTitleKey()) }}</h3>
+            <p class="text-sm text-slate-500 mt-1">{{ languageService.translate(successMessageKey(), successMessageParams()) }}</p>
+          </div>
+        </div>
+        <button (click)="closeSuccessModal()" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">×</button>
+      </div>
+      <div class="text-right">
+        <button (click)="closeSuccessModal()" class="px-6 py-3 font-bold rounded-2xl bg-gradient-to-r from-cyan-500 to-purple-600 text-white shadow-lg hover:opacity-95 transition">{{ languageService.translate('ok') }}</button>
       </div>
     </div>
   </div>

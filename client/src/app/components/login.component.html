@@ -1,159 +1,277 @@
-<div style="height:100vh;width:100vw;overflow:hidden;font-family:sans-serif;" class="flex flex-col selection:bg-sky-100">
+<div class="login-root">
 
-  <main class="flex-1 relative flex flex-col h-full">
+  <!-- ══ CANVAS 3D GLOBE ══ -->
+  <canvas #globeCanvas class="globe-canvas"></canvas>
 
-    <!-- Background fixe -->
-    <div class="absolute inset-0 z-0">
-      <img src="assets/industrial-bg.png" alt="background" class="w-full h-full object-cover" />
-      <div class="absolute inset-0" style="background: linear-gradient(to right, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.60) 50%, transparent 100%);"></div>
+  <!-- ══ OVERLAYS ══ -->
+  <div class="ov-vignette"></div>
+  <div class="scanlines"></div>
+  <div class="grid-bg"></div>
+
+  <!-- ══ BRAND TOP-LEFT ══ -->
+  <div class="brand-top">
+    <div class="brand-logo">
+      <div class="logo-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z"
+                fill="#00d9ff" stroke="#7dd3fc" stroke-width="0.5" stroke-linejoin="round"/>
+        </svg>
+        <div class="logo-ring"></div>
+      </div>
+      <div class="logo-text">
+        <span class="logo-ems">EMS</span><span class="logo-volt">VOLT</span>
+      </div>
+    </div>
+    <div class="brand-badge">
+      <span class="badge-dot"></span>
+      <span class="badge-txt">Monitoring Industriel · Actif</span>
+    </div>
+  </div>
+
+  <!-- ══ HERO SECTION GAUCHE ══ -->
+  <div class="hero-left">
+
+    <!-- Chip statut -->
+    <div class="hero-chip">
+      <span class="chip-pulse"></span>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#00d9ff" stroke-width="2.5">
+        <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3" stroke-linecap="round"/>
+      </svg>
+      <span>SUPERVISION EN TEMPS RÉEL · RÉSEAU MONDIAL</span>
     </div>
 
-    <!-- LOGO EMS VOLT + badge Monitoring -->
-    <div class="absolute top-6 left-6 lg:top-10 lg:left-12 z-50" style="display:flex;flex-direction:column;gap:12px;">
-      <!-- Ligne logo -->
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="width:40px;height:40px;background:linear-gradient(135deg,#0ea5e9,#0369a1);border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(14,165,233,0.4);">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" fill="#38bdf8" stroke="#7dd3fc" stroke-width="0.5" stroke-linejoin="round"/>
+    <!-- Titre principal -->
+    <h1 class="hero-title">
+      Pilotez votre<br>
+      <span class="title-gradient">Infrastructure</span><br>
+      <span class="title-sub">Énergétique.</span>
+    </h1>
+
+    <p class="hero-desc">
+      Plateforme de gestion d'énergie nouvelle génération.<br>
+      Contrôle, supervision et optimisation de vos actifs industriels.
+    </p>
+
+    <!-- KPI Cards animées -->
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-1">
+        <div class="kpi-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00d9ff" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
           </svg>
         </div>
-        <div style="display:flex;align-items:baseline;gap:6px;">
-          <span style="font-size:20px;font-weight:900;color:#ffffff;letter-spacing:0.04em;line-height:1;">EMS</span>
-          <span style="font-size:20px;font-weight:700;color:#38bdf8;letter-spacing:0.08em;line-height:1;">VOLT</span>
+        <div class="kpi-body">
+          <div class="kpi-value"><span class="kpi-num">3.4</span><span class="kpi-unit">GW</span></div>
+          <div class="kpi-label">Capacité totale</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill" style="width:85%"></div></div>
         </div>
       </div>
-      <!-- Badge Monitoring juste en dessous -->
-      <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:rgba(14,165,233,0.20);border:1px solid rgba(14,165,233,0.30);backdrop-filter:blur(12px);width:fit-content;">
-        <span style="width:7px;height:7px;border-radius:50%;background:#38bdf8;display:inline-block;animation:pulse 2s infinite;"></span>
-        <span style="font-size:10px;font-weight:700;color:#38bdf8;text-transform:uppercase;letter-spacing:0.12em;">Monitoring Industriel</span>
+
+      <div class="kpi-card kpi-2">
+        <div class="kpi-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value"><span class="kpi-num" style="color:#34d399">99.9</span><span class="kpi-unit" style="color:#34d399">%</span></div>
+          <div class="kpi-label">Disponibilité réseau</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill" style="width:99%;background:linear-gradient(90deg,#34d399,#6ee7b7)"></div></div>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-3">
+        <div class="kpi-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff9f43" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 8v4l2 2"/>
+          </svg>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value"><span class="kpi-num" style="color:#ff9f43">142</span><span class="kpi-unit" style="color:#ff9f43">sites</span></div>
+          <div class="kpi-label">Sites surveillés</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill" style="width:72%;background:linear-gradient(90deg,#ff9f43,#ffd89b)"></div></div>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-4">
+        <div class="kpi-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7b61ff" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value"><span class="kpi-num" style="color:#7b61ff">89.5</span><span class="kpi-unit" style="color:#7b61ff">%</span></div>
+          <div class="kpi-label">Efficacité globale</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill" style="width:89%;background:linear-gradient(90deg,#7b61ff,#a78bfa)"></div></div>
+        </div>
       </div>
     </div>
 
-    <!-- Contenu principal -->
-    <div class="relative z-10 flex-1 flex flex-col lg:flex-row items-center px-8 lg:px-24 py-12 lg:py-0 w-full h-full">
-
-      <!-- LEFT TEXT -->
-      <div class="flex-1 text-white space-y-6 mb-12 lg:mb-0 lg:pr-12" style="margin-top:140px;">
-
-        <h2 class="font-black tracking-tight" style="font-size:clamp(36px,4.5vw,56px);line-height:1.2;">
-          Optimisez votre
-          <span style="background:linear-gradient(to right,#38bdf8,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Énergie</span>
-          en temps réel.
-        </h2>
-
-        <p class="text-lg max-w-xl leading-relaxed" style="color:#cbd5e1;">
-          Connectez-vous à la plateforme EMS la plus avancée. Visualisez, analysez et contrôlez vos actifs industriels en un clic.
-        </p>
+    <!-- Ticker défilant -->
+    <div class="ticker-wrap">
+      <div class="ticker-label">
+        <span class="ticker-dot"></span>LIVE
       </div>
+      <div class="ticker-track">
+        <div class="ticker-content">
+          <span>⚡ Production actuelle : 1.03 MW</span>
+          <span>·</span>
+          <span>🔋 Stockage : 67% capacité</span>
+          <span>·</span>
+          <span>🌡 Température réseau : nominal</span>
+          <span>·</span>
+          <span>📡 Connexions actives : 142 / 142</span>
+          <span>·</span>
+          <span>✅ Aucune alerte critique</span>
+          <span>·</span>
+          <span>⚡ Production actuelle : 1.03 MW</span>
+          <span>·</span>
+          <span>🔋 Stockage : 67% capacité</span>
+          <span>·</span>
+          <span>🌡 Température réseau : nominal</span>
+          <span>·</span>
+          <span>📡 Connexions actives : 142 / 142</span>
+          <span>·</span>
+          <span>✅ Aucune alerte critique</span>
+        </div>
+      </div>
+    </div>
 
-      <!-- CARD — tout en inline style pour contourner Angular ViewEncapsulation -->
-      <div class="w-full" style="max-width:480px;animation:floatCard 3.5s ease-in-out infinite alternate;">
-        <div style="
-          background: linear-gradient(135deg, rgba(14,165,233,0.22) 0%, rgba(56,189,248,0.12) 50%, rgba(2,132,199,0.18) 100%);
-          backdrop-filter: blur(28px) saturate(200%) brightness(1.15);
-          -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.15);
-          border-radius: 28px;
-          border: 1px solid rgba(125,211,252,0.40);
-          border-top-color: rgba(186,230,253,0.55);
-          box-shadow:
-            0 0 0 1px rgba(14,165,233,0.10),
-            0 8px 32px rgba(2,132,199,0.30),
-            0 32px 64px rgba(0,0,0,0.40),
-            inset 0 1px 0 rgba(186,230,253,0.45);
-          padding: 48px;
-          position: relative;
-          overflow: hidden;
-        ">
+    <!-- Feature pills -->
+    <div class="feature-pills">
+      <div class="pill">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#00d9ff" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Monitoring temps réel
+      </div>
+      <div class="pill">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Sécurité industrielle
+      </div>
+      <div class="pill">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ff9f43" stroke-width="2.5"><path stroke-linecap="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        Optimisation IA
+      </div>
+      <div class="pill">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#7b61ff" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+        Réseau mondial
+      </div>
+    </div>
 
-          <!-- Reflet haut de carte -->
-          <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent 0%,rgba(186,230,253,0.7) 30%,rgba(125,211,252,0.9) 50%,rgba(186,230,253,0.7) 70%,transparent 100%);"></div>
-          <!-- Lueur interne coin haut-gauche -->
-          <div style="position:absolute;top:-60px;left:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(56,189,248,0.14) 0%,transparent 70%);border-radius:50%;pointer-events:none;"></div>
+  </div>
 
-          <!-- Titre -->
-          <div style="margin-bottom:36px;">
-            <h3 style="font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-0.02em;">Accès Client</h3>
-            <p style="color:rgba(186,230,253,0.70);font-size:13px;margin-top:8px;">Veuillez entrer vos identifiants pour continuer.</p>
+  <!-- ══ LAYOUT CARD DROITE ══ -->
+  <div class="page-layout">
+    <div class="card-side">
+      <div class="login-card">
+
+        <div class="card-glow-tl"></div>
+        <div class="card-glow-br"></div>
+        <div class="card-top-shimmer"></div>
+
+        <div class="card-header">
+          <div class="ch-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d9ff" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="ch-title">Accès Sécurisé</div>
+            <div class="ch-sub">Entrez vos identifiants pour accéder au dashboard</div>
+          </div>
+        </div>
+
+        <div class="card-hr"></div>
+
+        <form (ngSubmit)="isLogin ? login() : handleRegister()" class="card-form">
+
+          <div class="field" *ngIf="!isLogin">
+            <label class="flabel">
+              <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>Nom complet
+            </label>
+            <div class="finput-wrap">
+              <span class="ficon"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></span>
+              <input type="text" [(ngModel)]="registerName" name="name" placeholder="Jean Dupont" class="finput"/>
+            </div>
           </div>
 
-          <!-- FORM -->
-          <form (ngSubmit)="login()" style="display:flex;flex-direction:column;gap:20px;">
-
-            <!-- Email -->
-            <div>
-              <label style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:#bae6fd;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:8px;">
-                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                Email
-              </label>
-              <div style="position:relative;background:rgba(14,165,233,0.12);border-radius:14px;border:1px solid rgba(125,211,252,0.22);">
-                <span style="position:absolute;left:16px;top:50%;transform:translateY(-50%);color:#7dd3fc;">
-                  <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                </span>
-                <input
-                  type="email"
-                  [(ngModel)]="email"
-                  name="email"
-                  placeholder="email@entreprise.com"
-                  style="width:100%;padding:15px 20px 15px 48px;background:transparent;border:none;border-radius:10px;font-size:14px;font-weight:500;color:#ffffff;outline:none;box-sizing:border-box;"
-                />
-              </div>
+          <div class="field">
+            <label class="flabel">
+              <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>Adresse Email
+            </label>
+            <div class="finput-wrap" [class.active]="emailFocused">
+              <span class="ficon"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></span>
+              <input type="email" [(ngModel)]="email" name="email" placeholder="nom@entreprise.com" class="finput"
+                     (focus)="emailFocused=true" (blur)="emailFocused=false"/>
             </div>
+          </div>
 
-            <!-- Mot de passe -->
-            <div>
-              <label style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:#bae6fd;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:8px;">
-                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                Mot de passe
-              </label>
-              <div style="position:relative;background:rgba(14,165,233,0.12);border-radius:14px;border:1px solid rgba(125,211,252,0.22);">
-                <span style="position:absolute;left:16px;top:50%;transform:translateY(-50%);color:#7dd3fc;">
-                  <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                </span>
-                <input
-                  type="password"
-                  [(ngModel)]="password"
-                  name="password"
-                  placeholder="••••••••"
-                  style="width:100%;padding:15px 20px 15px 48px;background:transparent;border:none;border-radius:10px;font-size:14px;font-weight:500;color:#ffffff;outline:none;box-sizing:border-box;"
-                />
-              </div>
+          <div class="field">
+            <label class="flabel">
+              <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>Mot de passe
+            </label>
+            <div class="finput-wrap" [class.active]="passFocused">
+              <span class="ficon"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg></span>
+              <input [type]="showPass?'text':'password'" [(ngModel)]="password" name="password" placeholder="••••••••••" class="finput"
+                     (focus)="passFocused=true" (blur)="passFocused=false"/>
+              <button type="button" class="eye-btn" (click)="showPass=!showPass">
+                <svg *ngIf="!showPass" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+                <svg *ngIf="showPass" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                </svg>
+              </button>
             </div>
+          </div>
 
-            <!-- Erreur -->
-            <div *ngIf="errorMessage" style="color:#f87171;font-size:12px;display:flex;align-items:center;gap:6px;">
-              <span>⚠</span> {{ errorMessage }}
-            </div>
+          <div *ngIf="errorMessage" class="err-box">
+            <svg width="13" height="13" fill="none" stroke="#f87171" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            {{ errorMessage }}
+          </div>
 
-            <!-- Bouton -->
-            <button
-              type="submit"
-              [disabled]="isLoading"
-              style="width:100%;background:linear-gradient(135deg,#0ea5e9 0%,#0284c7 100%);color:white;padding:18px 24px;border-radius:14px;font-weight:800;font-size:14px;border:none;cursor:pointer;box-shadow:0 10px 25px -5px rgba(14,165,233,0.45),inset 0 1px 0 rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.3s;"
-            >
-              <span *ngIf="!isLoading">Se connecter au Dashboard →</span>
-              <div *ngIf="isLoading" style="width:20px;height:20px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-            </button>
+          <button type="submit" [disabled]="isLoading" class="sub-btn">
+            <div class="sub-shimmer"></div>
+            <span *ngIf="!isLoading" class="sub-inner">
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+              {{ isLogin ? 'Accéder au Dashboard' : 'Créer le compte' }}
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+              </svg>
+            </span>
+            <div *ngIf="isLoading" class="spinner"></div>
+          </button>
 
-          </form>
+        </form>
+
+        <div class="toggle-row">
+          <span class="tog-txt">{{ isLogin ? 'Pas encore de compte ?' : 'Déjà un compte ?' }}</span>
+          <button type="button" class="tog-btn" (click)="toggleMode()">{{ isLogin ? "S'inscrire" : 'Se connecter' }}</button>
         </div>
-      </div>
 
+        <div class="sec-row">
+          <span class="sec-item">
+            <svg width="9" height="9" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>TLS 1.3
+          </span>
+          <span class="sec-dot">·</span>
+          <span class="sec-item">Données chiffrées</span>
+          <span class="sec-dot">·</span>
+          <span class="sec-item">ISO 27001</span>
+        </div>
+
+      </div>
     </div>
-  </main>
+  </div>
 
 </div>
-
-<!-- Keyframes injectés ici — visibles globalement, non scopés par Angular -->
-<style>
-  @keyframes floatCard {
-    0%   { transform: translateY(0px); }
-    100% { transform: translateY(-10px); }
-  }
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-  input[type="email"]::placeholder,
-  input[type="password"]::placeholder {
-    color: rgba(125, 211, 252, 0.55) !important;
-  }
-</style>&

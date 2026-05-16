@@ -225,6 +225,7 @@ export class MeasurementsService {
       .orderBy(sql`1`);
 
     if (!dailyData || dailyData.length === 0) {
+      console.log(`   ❌ No measurement data found for this period`);
       return {
         activeEnergy: 0,
         rateJour: 0,
@@ -240,6 +241,8 @@ export class MeasurementsService {
     }
 
     const totalPower = dailyData.reduce((acc, curr) => acc + (curr.avgpower || 0), 0);
+    const activeEnergy = totalPower * 24;
+    console.log(`   ✅ Found ${dailyData.length} days, totalPower=${totalPower.toFixed(2)}kW, activeEnergy=${activeEnergy.toFixed(2)}kWh`);
     return {
       activeEnergy: totalPower * 24,
       rateJour: 0.290,

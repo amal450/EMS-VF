@@ -37,7 +37,7 @@ async function initializePermissions() {
       { code: 'VIEW_INVOICES', name: 'Voir les factures', description: 'Accès aux factures et facturation' },
       { code: 'VIEW_ALERTS', name: 'Voir les alertes', description: 'Voir les alertes et anomalies' },
       { code: 'MANAGE_THRESHOLDS', name: 'Gérer les seuils', description: 'Modifier les seuils d\'alerte' },
-      { code: 'MANAGE_ASSETS', name: 'Gérer les équipements', description: 'Créer/modifier/supprimer les équipements' },
+      { code: 'MANAGE_ASSETS', name: 'Gérer les assets', description: 'Créer/modifier/supprimer les assets' },
       { code: 'MANAGE_USERS', name: 'Gérer les utilisateurs', description: 'Créer/modifier/supprimer les utilisateurs' },
       { code: 'VIEW_CONSUMPTION', name: 'Voir la consommation', description: 'Voir les données temps réel et historiques' },
       { code: 'EXPORT_DATA', name: 'Exporter les données', description: 'Exporter les données en CSV/PDF' },

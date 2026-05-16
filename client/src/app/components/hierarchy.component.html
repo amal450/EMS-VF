@@ -4,15 +4,15 @@
   <div class="mb-10 flex justify-between items-end">
     <div>
       <h1 class="text-4xl font-black bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent tracking-tight mb-2 uppercase">
-        Gestion de la Hiérarchie
+        {{ languageService.translate('siteManagement') }}
       </h1>
-      <p class="text-slate-500 font-medium italic">Gérez votre arborescence industrielle avec précision.</p>
+      <p class="text-slate-500 font-medium italic">{{ languageService.translate('manageAssets') }}</p>
     </div>
 
     <!-- BOUTON AJOUTER SITE (LUMINEUX) -->
     <button *ngIf="authService.isAdmin()" (click)="openAdd({id:null}, 'SITE')" 
             class="bg-gradient-to-r from-cyan-500/80 to-purple-600/80 backdrop-blur-md text-white px-8 py-3 rounded-2xl font-bold shadow-[0_0_25px_rgba(6,182,212,0.4)] transition-all hover:scale-105 flex items-center gap-2 border border-white/20">
-      <span class="text-xl">+</span> Ajouter un Site
+      <span class="text-xl">+</span> {{ languageService.translate('addSite') || (languageService.translate('add') + ' ' + languageService.translateAssetType('SITE')) }}
     </button>
   </div>
 
@@ -23,7 +23,7 @@
     <div *ngIf="isLoading()" class="flex items-center justify-center py-20">
       <div class="text-center">
         <div class="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p class="text-slate-500 font-medium">Chargement de la hiérarchie...</p>
+        <p class="text-slate-500 font-medium">{{ languageService.translate('loadingAssets') }}</p>
       </div>
     </div>
 
@@ -31,7 +31,7 @@
     <div *ngIf="errorMessage()" class="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
       <p class="text-red-600 font-bold">{{ errorMessage() }}</p>
       <button (click)="loadHierarchy()" class="mt-4 px-6 py-2 bg-red-500 text-white rounded-full font-bold text-sm hover:bg-red-600 transition">
-        Réessayer
+        {{ languageService.translate('refresh') }}
       </button>
     </div>
 
@@ -42,11 +42,11 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
         </svg>
       </div>
-      <h3 class="text-xl font-bold text-slate-700 mb-2">Aucune hiérarchie trouvée</h3>
-      <p class="text-slate-500 mb-6">Commencez par créer votre premier Site</p>
+      <h3 class="text-xl font-bold text-slate-700 mb-2">{{ languageService.translate('noAssetFound') }}</h3>
+      <p class="text-slate-500 mb-6">{{ languageService.translate('createFirstSite') }}</p>
       <button (click)="openAdd({id:null}, 'SITE')" 
               class="bg-gradient-to-r from-cyan-500 to-purple-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg hover:opacity-90 transition">
-        + Ajouter un Site
+        + {{ languageService.translate('addSite') || (languageService.translate('add') + ' ' + languageService.translateAssetType('SITE')) }}
       </button>
     </div>
 
@@ -62,13 +62,13 @@
             </svg>
             <div (click)="selectAsset(site); $event.stopPropagation()">
               <h3 class="text-xl font-black text-slate-900 uppercase tracking-tight">{{ site.name }}</h3>
-              <p class="text-[10px] font-bold text-cyan-500 tracking-widest uppercase">SITE • ID: {{ site.id }}</p>
+                  <p class="text-[10px] font-bold text-cyan-500 tracking-widest uppercase">{{ languageService.translateAssetType(site.type) }} • ID : {{ site.id }}</p>
             </div>
           </div>
           <div *ngIf="authService.isAdmin()" class="flex gap-3">
-            <button (click)="openAdd(site,'TGBT')" class="px-5 py-2 bg-blue-500/10 text-blue-600 border border-blue-500/20 rounded-full font-black text-[10px] uppercase hover:bg-blue-600 hover:text-white transition-all">Ajouter</button>
-            <button (click)="openEdit(site)" class="px-5 py-2 bg-purple-500/10 text-purple-600 border border-purple-500/20 rounded-full font-black text-[10px] uppercase hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
-            <button (click)="askDelete(site)" class="px-5 py-2 bg-pink-500/10 text-pink-600 border border-pink-500/20 rounded-full font-black text-[10px] uppercase hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
+            <button (click)="openAdd(site,'TGBT')" class="px-5 py-2 bg-blue-500/10 text-blue-600 border border-blue-500/20 rounded-full font-black text-[10px] uppercase hover:bg-blue-600 hover:text-white transition-all">{{ languageService.translate('add') }}</button>
+            <button (click)="openEdit(site)" class="px-5 py-2 bg-purple-500/10 text-purple-600 border border-purple-500/20 rounded-full font-black text-[10px] uppercase hover:bg-purple-600 hover:text-white transition-all">{{ languageService.translate('edit') }}</button>
+            <button (click)="askDelete(site)" class="px-5 py-2 bg-pink-500/10 text-pink-600 border border-pink-500/20 rounded-full font-black text-[10px] uppercase hover:bg-pink-600 hover:text-white transition-all">{{ languageService.translate('delete') }}</button>
           </div>
         </div>
 
@@ -83,13 +83,13 @@
                 </svg>
                 <div (click)="selectAsset(tgbt); $event.stopPropagation()">
                   <h4 class="text-lg font-bold text-slate-800">{{ tgbt.name }}</h4>
-                  <p class="text-[9px] font-bold text-purple-400 uppercase tracking-widest">TGBT</p>
+                  <p class="text-[9px] font-bold text-purple-400 uppercase tracking-widest">{{ languageService.translateAssetType(tgbt.type) }}</p>
                 </div>
               </div>
               <div *ngIf="authService.isAdmin()" class="flex gap-2">
-                <button (click)="openAdd(tgbt,'ARMOIRE')" class="px-4 py-1.5 bg-blue-500/10 text-blue-600 border border-blue-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-blue-600 hover:text-white transition-all">Ajouter</button>
-                <button (click)="openEdit(tgbt)" class="px-4 py-1.5 bg-purple-500/10 text-purple-600 border border-purple-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
-                <button (click)="askDelete(tgbt)" class="px-4 py-1.5 bg-pink-500/10 text-pink-600 border border-pink-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
+                <button (click)="openAdd(tgbt,'ARMOIRE')" class="px-4 py-1.5 bg-blue-500/10 text-blue-600 border border-blue-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-blue-600 hover:text-white transition-all">{{ languageService.translate('add') }}</button>
+                <button (click)="openEdit(tgbt)" class="px-4 py-1.5 bg-purple-500/10 text-purple-600 border border-purple-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-purple-600 hover:text-white transition-all">{{ languageService.translate('edit') }}</button>
+                <button (click)="askDelete(tgbt)" class="px-4 py-1.5 bg-pink-500/10 text-pink-600 border border-pink-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-pink-600 hover:text-white transition-all">{{ languageService.translate('delete') }}</button>
               </div>
             </div>
 
@@ -104,13 +104,13 @@
                     </svg>
                     <div (click)="selectAsset(arm); $event.stopPropagation()">
                       <h5 class="text-md font-bold text-slate-800">{{ arm.name }}</h5>
-                      <p class="text-[9px] font-bold text-orange-400 uppercase tracking-widest">ARMOIRE</p>
+                      <p class="text-[9px] font-bold text-orange-400 uppercase tracking-widest">{{ languageService.translateAssetType(arm.type) }}</p>
                     </div>
                   </div>
                   <div *ngIf="authService.isAdmin()" class="flex gap-2">
-                    <button (click)="openAdd(arm,'LIGNE')" class="px-4 py-1.5 bg-blue-500/10 text-blue-600 border border-blue-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-blue-600 hover:text-white transition-all">Ajouter</button>
-                    <button (click)="openEdit(arm)" class="px-4 py-1.5 bg-purple-500/10 text-purple-600 border border-purple-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
-                    <button (click)="askDelete(arm)" class="px-4 py-1.5 bg-pink-500/10 text-pink-600 border border-pink-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
+                    <button (click)="openAdd(arm,'LIGNE')" class="px-4 py-1.5 bg-blue-500/10 text-blue-600 border border-blue-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-blue-600 hover:text-white transition-all">{{ languageService.translate('add') }}</button>
+                    <button (click)="openEdit(arm)" class="px-4 py-1.5 bg-purple-500/10 text-purple-600 border border-purple-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-purple-600 hover:text-white transition-all">{{ languageService.translate('edit') }}</button>
+                    <button (click)="askDelete(arm)" class="px-4 py-1.5 bg-pink-500/10 text-pink-600 border border-pink-500/10 rounded-full font-bold text-[9px] uppercase hover:bg-pink-600 hover:text-white transition-all">{{ languageService.translate('delete') }}</button>
                   </div>
                 </div>
 
@@ -125,13 +125,13 @@
                         </svg>
                         <div (click)="selectAsset(ligne); $event.stopPropagation()">
                           <h6 class="text-sm font-bold text-slate-700">{{ ligne.name }}</h6>
-                          <p class="text-[8px] font-bold text-emerald-400 uppercase">LIGNE</p>
+                          <p class="text-[8px] font-bold text-emerald-400 uppercase">{{ languageService.translateAssetType(ligne.type) }}</p>
                         </div>
                       </div>
                       <div *ngIf="authService.isAdmin()" class="flex gap-2">
-                        <button (click)="openAdd(ligne,'EQUIPEMENT')" class="px-3 py-1 bg-blue-500/10 text-blue-600 border border-blue-500/10 rounded-full font-bold text-[8px] uppercase hover:bg-blue-600 hover:text-white transition-all">Ajouter</button>
-                        <button (click)="openEdit(ligne)" class="px-3 py-1 bg-purple-500/10 text-purple-600 border border-purple-500/10 rounded-full font-bold text-[8px] uppercase hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
-                        <button (click)="askDelete(ligne)" class="px-3 py-1 bg-pink-500/10 text-pink-600 border border-pink-500/10 rounded-full font-bold text-[8px] uppercase hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
+                        <button (click)="openAdd(ligne,'EQUIPEMENT')" class="px-3 py-1 bg-blue-500/10 text-blue-600 border border-blue-500/10 rounded-full font-bold text-[8px] uppercase hover:bg-blue-600 hover:text-white transition-all">{{ languageService.translate('add') }}</button>
+                        <button (click)="openEdit(ligne)" class="px-3 py-1 bg-purple-500/10 text-purple-600 border border-purple-500/10 rounded-full font-bold text-[8px] uppercase hover:bg-purple-600 hover:text-white transition-all">{{ languageService.translate('edit') }}</button>
+                        <button (click)="askDelete(ligne)" class="px-3 py-1 bg-pink-500/10 text-pink-600 border border-pink-500/10 rounded-full font-bold text-[8px] uppercase hover:bg-pink-600 hover:text-white transition-all">{{ languageService.translate('delete') }}</button>
                       </div>
                     </div>
 
@@ -141,11 +141,11 @@
                         <div class="bg-white/20 rounded-xl p-3 border-2 border-pink-100/30 shadow-sm flex items-center justify-between transition-all">
                           <div class="cursor-pointer" (click)="selectAsset(eq)">
                             <span class="text-xs font-bold text-slate-600 italic hover:text-blue-500">{{ eq.name }}</span>
-                            <p class="text-[8px] font-black text-pink-400 uppercase tracking-widest mt-0.5">Équipement</p>
+                            <p class="text-[8px] font-black text-pink-400 uppercase tracking-widest mt-0.5">{{ languageService.translateAssetType(eq.type) }}</p>
                           </div>
                           <div *ngIf="authService.isAdmin()" class="flex gap-2">
-                            <button (click)="openEdit(eq)" class="px-3 py-1 bg-purple-500/10 text-purple-600 border border-purple-400/20 rounded-full font-bold text-[8px] uppercase hover:bg-purple-600 hover:text-white transition-all">Modifier</button>
-                            <button (click)="askDelete(eq)" class="px-3 py-1 bg-pink-500/10 text-pink-400 border border-pink-400/20 rounded-full font-bold text-[8px] uppercase hover:bg-pink-600 hover:text-white transition-all">Supprimer</button>
+                            <button (click)="openEdit(eq)" class="px-3 py-1 bg-purple-500/10 text-purple-600 border border-purple-400/20 rounded-full font-bold text-[8px] uppercase hover:bg-purple-600 hover:text-white transition-all">{{ languageService.translate('edit') }}</button>
+                            <button (click)="askDelete(eq)" class="px-3 py-1 bg-pink-500/10 text-pink-400 border border-pink-400/20 rounded-full font-bold text-[8px] uppercase hover:bg-pink-600 hover:text-white transition-all">{{ languageService.translate('delete') }}</button>
                           </div>
                         </div>
                       </div>
@@ -165,26 +165,26 @@
   <!-- ========================================== -->
   <div *ngIf="showAssetModal()" class="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/60 backdrop-blur-md">
     <div class="bg-white/95 backdrop-blur-xl p-10 rounded-[2.5rem] w-[500px] shadow-[0_0_50px_rgba(59,130,246,0.3)] border border-white animate-in zoom-in duration-200">
-      <h2 class="text-2xl font-black bg-gradient-to-r from-cyan-500 to-purple-600 bg-clip-text text-transparent mb-8 text-center uppercase">{{ isEditAssetMode() ? 'Modifier' : 'Ajouter' }}</h2>
+      <h2 class="text-2xl font-black bg-gradient-to-r from-cyan-500 to-purple-600 bg-clip-text text-transparent mb-8 text-center uppercase">{{ isEditAssetMode() ? languageService.translate('edit') : languageService.translate('add') }}</h2>
       
       <div class="space-y-6">
         <div>
-          <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Nom de l'élément</label>
+          <label class="text-[10px] font-black text-slate-400 uppercase ml-2">{{ languageService.translate('elementName') }}</label>
           <input type="text" [(ngModel)]="assetForm().name" class="w-full p-4 bg-white border border-slate-200 rounded-2xl mt-1 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
         </div>
         <div>
-          <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Lien WebSocket (Optionnel)</label>
+          <label class="text-[10px] font-black text-slate-400 uppercase ml-2">{{ languageService.translate('websocketLink') }}</label>
           <input type="text" [(ngModel)]="assetForm().webSocketLink" class="w-full p-4 bg-white border border-slate-200 rounded-2xl mt-1 font-mono text-xs text-blue-600 outline-none focus:ring-2 focus:ring-blue-500" placeholder="ws://...">
         </div>
         <div>
-          <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Seuil Intensité Max (A)</label>
+          <label class="text-[10px] font-black text-slate-400 uppercase ml-2">{{ languageService.translate('maxCurrent') }}</label>
           <input type="number" [(ngModel)]="assetForm().maxCurrent" class="w-full p-4 bg-white border border-slate-200 rounded-2xl mt-1 font-bold text-red-500 outline-none focus:ring-2 focus:ring-red-400">
         </div>
       </div>
 
       <div class="flex gap-4 mt-10">
-        <button (click)="showAssetModal.set(false)" class="flex-1 py-4 font-bold bg-slate-100 text-slate-500 rounded-2xl hover:bg-slate-200 transition">Annuler</button>
-        <button (click)="saveAsset()" class="flex-1 py-4 font-black bg-gradient-to-r from-cyan-500 to-purple-600 text-white rounded-2xl shadow-lg hover:opacity-90 transition">Confirmer</button>
+        <button (click)="showAssetModal.set(false)" class="flex-1 py-4 font-bold bg-slate-100 text-slate-500 rounded-2xl hover:bg-slate-200 transition">{{ languageService.translate('cancel') }}</button>
+        <button (click)="saveAsset()" class="flex-1 py-4 font-black bg-gradient-to-r from-cyan-500 to-purple-600 text-white rounded-2xl shadow-lg hover:opacity-90 transition">{{ languageService.translate('confirm') || languageService.translate('saveThreshold') }}</button>
       </div>
     </div>
   </div>
@@ -195,11 +195,11 @@
   <div *ngIf="showDeleteAssetModal()" class="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/40 backdrop-blur-md">
     <div class="bg-white p-10 rounded-[2.5rem] w-96 text-center shadow-[0_0_50px_rgba(239,68,68,0.3)] border border-white animate-in zoom-in duration-200">
       <div class="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl font-bold border-2 border-red-100 shadow-sm">!</div>
-      <h3 class="text-2xl font-black text-slate-900 mb-2">Supprimer ?</h3>
-      <p class="text-sm text-slate-400 px-4 mb-8 italic">Voulez-vous vraiment supprimer l'élément <b>{{ assetToDeleteName() }}</b> ?</p>
+      <h3 class="text-2xl font-black text-slate-900 mb-2">{{ languageService.translate('deleteItemTitle') }}</h3>
+      <p class="text-sm text-slate-400 px-4 mb-8 italic">{{ languageService.translate('deleteAssetQuestion', { name: assetToDeleteName() }) }}</p>
       <div class="flex gap-4">
-        <button (click)="showDeleteAssetModal.set(false)" class="flex-1 py-3.5 font-bold bg-slate-100 text-slate-500 rounded-2xl hover:bg-slate-200 transition">Non</button>
-        <button (click)="confirmDelete()" class="flex-1 py-3.5 font-black bg-red-500 text-white rounded-2xl shadow-lg shadow-red-500/30 hover:bg-red-600 transition">Oui, Supprimer</button>
+        <button (click)="showDeleteAssetModal.set(false)" class="flex-1 py-3.5 font-bold bg-slate-100 text-slate-500 rounded-2xl hover:bg-slate-200 transition">{{ languageService.translate('no') }}</button>
+        <button (click)="confirmDelete()" class="flex-1 py-3.5 font-black bg-red-500 text-white rounded-2xl shadow-lg shadow-red-500/30 hover:bg-red-600 transition">{{ languageService.translate('yes') }}, {{ languageService.translate('delete') }}</button>
       </div>
     </div>
   </div>

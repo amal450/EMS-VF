@@ -3,6 +3,7 @@ import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { LanguageService } from '../services/language.service';
 import { ConsumptionChartComponent } from './consumption-chart.component';
 
 @Component({
@@ -16,6 +17,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private zone = inject(NgZone);
   public authService = inject(AuthService);
+  public languageService = inject(LanguageService);
 
   selectedAsset = signal<any>(null);
   private monitorInterval: any;
@@ -67,6 +69,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy() { if (this.monitorInterval) clearInterval(this.monitorInterval); }
 
   private checkForNewAlerts() {
+    // Vérifier si l'utilisateur a la permission VIEW_ALERTS
+    if (!this.authService.hasPermission('VIEW_ALERTS')) {
+      return;
+    }
+    
     this.http.get<any>('http://localhost:3000/measurements/alerts/latest', {
       headers: { 'Authorization': `Bearer ${this.authService.getToken()}` }
     }).subscribe(alert => {
@@ -79,9 +86,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private showAlertNotification(alert: any) {
     this.alertNotificationCount.update(count => count + 1);
-    const dateStr = new Date(alert.timestamp).toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit' });
-    const timeStr = new Date(alert.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const message = `ALERTE : ${alert.message} sur ${alert.assetName} – ${alert.value}A (Seuil ${alert.threshold}A)`;
+    const locale = this.languageService.language() === 'en' ? 'en-US' : 'fr-FR';
+    const dateStr = new Date(alert.timestamp).toLocaleDateString(locale, { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const timeStr = new Date(alert.timestamp).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const translatedAlertMessage = this.languageService.translateAlertMessage(alert.message);
+    const message = this.languageService.translate('latestAlertNotification', {
+      date: dateStr,
+      time: timeStr,
+      message: translatedAlertMessage,
+      asset: alert.assetName,
+      value: alert.value?.toString() ?? '',
+      threshold: alert.threshold?.toString() ?? ''
+    });
 
     this.notificationMessage.set(message);
     this.showNotification.set(true);

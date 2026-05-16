@@ -2,6 +2,7 @@ import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../services/auth.service';
+import { LanguageService } from '../services/language.service';
 
 @Component({
   selector: 'app-reports',
@@ -14,26 +15,26 @@ import { AuthService } from '../services/auth.service';
       <div class="mb-10 flex justify-between items-end">
         <div>
           <h1 class="text-4xl font-black bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent tracking-tight mb-2 uppercase">
-            Centre d'Exploitation
+            {{ languageService.translate('reportsTitle') }}
           </h1>
-          <p class="text-slate-500 font-medium italic text-sm">Générez des rapports d'analyse complets pour chaque point de mesure.</p>
+          <p class="text-slate-500 font-medium italic text-sm">{{ languageService.translate('reportsSubtitle') }}</p>
         </div>
         
         <div class="bg-white rounded-2xl px-6 py-3 border-2 border-emerald-100 shadow-[0_0_15px_rgba(16,185,129,0.1)] flex items-center gap-3">
           <span class="text-emerald-500 text-xl"></span>
-          <span class="text-xs font-black text-slate-700 uppercase tracking-widest">Rapports Prêts</span>
+          <span class="text-xs font-black text-slate-700 uppercase tracking-widest">{{ languageService.translate('reportsReady') }}</span>
         </div>
       </div>
 
       <div class="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
         <div class="flex flex-wrap items-center gap-3">
-          <label class="text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">Du</label>
+          <label class="text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">{{ languageService.translate('fromLabel') }}</label>
           <input type="date" class="px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="reportStartDate()" (change)="reportStartDate.set($any($event.target).value)" />
-          <label class="text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">Au</label>
+          <label class="text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">{{ languageService.translate('toLabel') }}</label>
           <input type="date" class="px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="reportEndDate()" (change)="reportEndDate.set($any($event.target).value)" />
         </div>
         <div class="flex flex-col gap-3 items-start md:items-end">
-          <button (click)="loadReportDateRange()" class="px-6 py-3 rounded-full bg-sky-500 text-white font-black uppercase tracking-[0.2em] hover:bg-sky-600 transition">Actualiser</button>
+          <button (click)="loadReportDateRange()" class="px-6 py-3 rounded-full bg-sky-500 text-white font-black uppercase tracking-[0.2em] hover:bg-sky-600 transition">{{ languageService.translate('refresh') }}</button>
         </div>
       </div>
 
@@ -67,7 +68,7 @@ import { AuthService } from '../services/auth.service';
                        asset.type === 'TGBT' ? 'bg-purple-50 text-purple-600' : 
                        asset.type === 'ARMOIRE' ? 'bg-orange-50 text-orange-500' : 
                        asset.type === 'LIGNE' ? 'bg-emerald-50 text-emerald-500' : 'bg-pink-50 text-pink-500')">
-                  {{ asset.type }}
+                  {{ languageService.translateAssetType(asset.type) }}
                 </span>
               </div>
 
@@ -75,13 +76,13 @@ import { AuthService } from '../services/auth.service';
               
               <ul class="space-y-2 mb-6">
                 <li class="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                   <span class="w-1 h-1 rounded-full bg-blue-500"></span> Analyse Tension / Courant
+                   <span class="w-1 h-1 rounded-full bg-blue-500"></span> {{ languageService.translate('analysisVoltageCurrent') }}
                 </li>
                 <li class="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                   <span class="w-1 h-1 rounded-full bg-blue-500"></span> Bilan Puissance (TKW)
+                   <span class="w-1 h-1 rounded-full bg-blue-500"></span> {{ languageService.translate('powerSummary') }}
                 </li>
                 <li class="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                   <span class="w-1 h-1 rounded-full bg-blue-500"></span> Stabilité Réseau (Hz)
+                   <span class="w-1 h-1 rounded-full bg-blue-500"></span> {{ languageService.translate('gridStability') }}
                 </li>
               </ul>
             </div>
@@ -89,17 +90,17 @@ import { AuthService } from '../services/auth.service';
 <!-- BOUTONS EXPORTER -->
             <div class="flex gap-2">
               <button (click)="downloadPDF(asset.id, asset.name)" class="flex-1 py-2.5 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all border-2 shadow-sm flex items-center justify-center gap-1 bg-sky-500/5 text-sky-600 border-sky-200 hover:bg-sky-600 hover:text-white">
-                 PDF
+                 {{ languageService.translate('exportPdf') }}
               </button>
               <button (click)="downloadCSV(asset.id, asset.name)" class="flex-1 py-2.5 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all border-2 shadow-sm flex items-center justify-center gap-1 bg-purple-500/5 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white">
-                 CSV
+                 {{ languageService.translate('exportCsv') }}
               </button>
             </div>
           </div>
         </div>
 
         <div *ngIf="assets().length === 0" class="p-20 text-center text-slate-300 font-bold italic">
-            Chargement de la hiérarchie industrielle...
+            {{ languageService.translate('loadingIndustryAssets') }}
         </div>
       </div>
     </div>
@@ -108,6 +109,7 @@ import { AuthService } from '../services/auth.service';
 export class ReportsComponent implements OnInit {
   private http = inject(HttpClient);
   private auth = inject(AuthService);
+  public languageService = inject(LanguageService);
   assets = signal<any[]>([]);
   reportStartDate = signal<string>(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
   reportEndDate = signal<string>(new Date().toISOString().slice(0, 10));
@@ -137,7 +139,8 @@ export class ReportsComponent implements OnInit {
     if (!token) return;
     const params = new URLSearchParams({
       startDate: this.reportStartDate(),
-      endDate: this.reportEndDate()
+      endDate: this.reportEndDate(),
+      lang: this.languageService.language()
     }).toString();
 
     this.http.get(`http://localhost:3000/measurements/report/${id}?${params}`, {
@@ -149,7 +152,7 @@ export class ReportsComponent implements OnInit {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `Rapport_${name.replace(/\s+/g, '_')}_${this.reportStartDate()}_${this.reportEndDate()}.csv`;
+        link.download = `${this.languageService.translate('reportFilePrefix')}_${name.replace(/\s+/g, '_')}_${this.reportStartDate()}_${this.reportEndDate()}.csv`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -173,6 +176,7 @@ export class ReportsComponent implements OnInit {
       startDate: this.reportStartDate(),
       endDate: this.reportEndDate(),
       format: 'pdf',
+      lang: this.languageService.language(),
       ts: Date.now().toString()
     }).toString();
 
@@ -186,7 +190,7 @@ export class ReportsComponent implements OnInit {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `Rapport_${name.replace(/\s+/g, '_')}_${this.reportStartDate()}_${this.reportEndDate()}.pdf.html`;
+        link.download = `${this.languageService.translate('reportFilePrefix')}_${name.replace(/\s+/g, '_')}_${this.reportStartDate()}_${this.reportEndDate()}.pdf.html`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

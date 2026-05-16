@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { BadRequestException, Injectable, Inject } from '@nestjs/common';
 import { DATABASE_CONNECTION } from '../db/database.provider';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../db/schema';
@@ -17,21 +17,26 @@ export class UsersService {
 
   async create(data: any) {
     const { id, permissions, ...userData } = data; 
-    
-    // Insert user
-    const newUser = await this.db.insert(schema.users).values({
-      username: userData.username,
-      email: userData.email,
-      password: userData.password, 
-      role: userData.role || 'AGENT'
-    }).returning();
+    try {
+      const newUser = await this.db.insert(schema.users).values({
+        username: userData.username,
+        email: userData.email,
+        password: userData.password, 
+        role: userData.role || 'AGENT'
+      }).returning();
 
-    // Assign permissions if provided
-    if (permissions && permissions.length > 0 && newUser[0]) {
-      await this.assignPermissions(newUser[0].id, permissions);
+      if (permissions && permissions.length > 0 && newUser[0]) {
+        await this.assignPermissions(newUser[0].id, permissions);
+      }
+
+      return newUser;
+    } catch (error: any) {
+      const code = error?.cause?.code || error?.code;
+      if (code === '23505' || /duplicate key value/.test(error?.message || '')) {
+        throw new BadRequestException('Cet email est déjà utilisé par un autre compte.');
+      }
+      throw error;
     }
-
-    return newUser;
   }
 
   async assignPermissions(userId: number, permissionIds: number[]) {
@@ -76,19 +81,30 @@ export class UsersService {
   }
 
   async update(id: number, data: any) {
-    const { id: _, permissions, ...updateData } = data;
+    const { id: _, permissions, password, ...updateData } = data;
     
-    const updated = await this.db.update(schema.users)
-      .set(updateData)
-      .where(eq(schema.users.id, id))
-      .returning();
-
-    // Update permissions if provided
-    if (permissions) {
-      await this.assignPermissions(id, permissions);
+    if (password) {
+      updateData.password = password;
     }
 
-    return Array.isArray(updated) && updated.length > 0 ? updated[0] : updated;
+    try {
+      const updated = await this.db.update(schema.users)
+        .set(updateData)
+        .where(eq(schema.users.id, id))
+        .returning();
+
+      if (permissions) {
+        await this.assignPermissions(id, permissions);
+      }
+
+      return Array.isArray(updated) && updated.length > 0 ? updated[0] : updated;
+    } catch (error: any) {
+      const code = error?.cause?.code || error?.code;
+      if (code === '23505' || /duplicate key value/.test(error?.message || '')) {
+        throw new BadRequestException('Cet email est déjà utilisé par un autre compte.');
+      }
+      throw error;
+    }
   }
 
   async remove(id: number) {

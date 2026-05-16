@@ -2,6 +2,7 @@ import { Component, signal, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, NavigationEnd } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { LanguageService } from '../services/language.service';
 import { filter } from 'rxjs/operators';
 
 @Component({
@@ -13,6 +14,7 @@ import { filter } from 'rxjs/operators';
 export class SidebarComponent implements OnInit {
   private router = inject(Router);
   public authService = inject(AuthService);
+  public languageService = inject(LanguageService);
   
   activeButton = signal('overview');
   

@@ -2,6 +2,7 @@ import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../services/auth.service';
+import { LanguageService } from '../services/language.service';
 import { AssetStateService } from '../services/asset-state.service';
 
 @Component({
@@ -15,29 +16,29 @@ import { AssetStateService } from '../services/asset-state.service';
       <div class="mb-10 flex justify-between items-center px-4">
         <div>
           <h1 class="text-4xl font-black bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent tracking-tight mb-2 uppercase">
-            Facture : {{ assetName() }}
+            {{ languageService.translate('invoiceFor') }} {{ assetName() }}
           </h1>
-          <p class="text-slate-400 font-bold italic text-sm uppercase tracking-widest">Récapitulatif financier mensuel</p>
+          <p class="text-slate-400 font-bold italic text-sm uppercase tracking-widest">{{ languageService.translate('monthlySummary') }}</p>
         </div>
         
         <div class="flex items-center gap-3 no-print whitespace-nowrap">
           <div class="flex items-center gap-2 text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">
-            <span>Mois</span>
-            <select class="px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="selectedMonth()" (change)="selectedMonth.set(toNumber($any($event.target).value)); loadBillingData();">
-              <option *ngFor="let month of months" [value]="month.value">{{ month.label }}</option>
+            <span>{{ languageService.translate('monthLabel') }}</span>
+            <select class="px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="selectedMonth()" (change)="onMonthChange($event)">
+              <option *ngFor="let month of months" [value]="month.value">{{ languageService.translateMonth(month.value) }}</option>
             </select>
           </div>
           <div class="flex items-center gap-2 text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">
-            <span>Année</span>
-            <input type="number" min="2000" max="2100" class="w-24 px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="selectedYear()" (input)="selectedYear.set(toNumber($any($event.target).value)); loadBillingData();" />
+            <span>{{ languageService.translate('yearLabel') }}</span>
+            <input type="number" min="2000" max="2100" class="w-24 px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="selectedYear()" (input)="onYearChange($event)" />
           </div>
           <button (click)="loadBillingData()" 
                   class="px-8 py-3 bg-cyan-500/10 text-cyan-600 border-2 border-cyan-500/20 rounded-full font-black text-[12px] uppercase shadow-[0_0_15px_rgba(6,182,212,0.15)] hover:bg-cyan-500 hover:text-white transition-all flex items-center gap-2">
-            <span>🔄</span> Recalculer
+            <span>🔄</span> {{ languageService.translate('recalculate') }}
           </button>
           <button (click)="downloadPDF()" 
                   class="px-8 py-3 bg-purple-500/10 text-purple-600 border-2 border-purple-500/20 rounded-full font-black text-[12px] uppercase shadow-[0_0_15px_rgba(168,85,247,0.15)] hover:bg-purple-600 hover:text-white transition-all flex items-center gap-2">
-            <span>📥</span> Télécharger PDF
+            <span>📥</span> {{ languageService.translate('downloadPdf') }}
           </button>
         </div>
       </div>
@@ -50,17 +51,17 @@ import { AssetStateService } from '../services/asset-state.service';
             <thead>
               <!-- CAPTURE 1 : EN-TÊTE TRANSPARENT ET DÉGRADÉ -->
               <tr class="bg-gradient-to-r from-cyan-400/80 to-purple-500/80 backdrop-blur-md text-white">
-                <th class="p-5 px-10 text-[10px] uppercase tracking-[0.25em] font-black italic">Désignation / Libellé</th>
-                <th class="p-5 text-[10px] uppercase tracking-[0.25em] font-black text-center italic">Consommation</th>
-                <th class="p-5 text-[10px] uppercase tracking-[0.25em] font-black text-center italic">P.U (DT)</th>
-                <th class="p-5 px-10 text-[10px] uppercase tracking-[0.25em] font-black text-right italic">Montant (DT)</th>
+                <th class="p-5 px-10 text-[10px] uppercase tracking-[0.25em] font-black italic">{{ languageService.translate('designation') }}</th>
+                <th class="p-5 text-[10px] uppercase tracking-[0.25em] font-black text-center italic">{{ languageService.translate('consumption') }}</th>
+                <th class="p-5 text-[10px] uppercase tracking-[0.25em] font-black text-center italic">{{ languageService.translate('unitPrice') }}</th>
+                <th class="p-5 px-10 text-[10px] uppercase tracking-[0.25em] font-black text-right italic">{{ languageService.translate('amount') }}</th>
               </tr>
             </thead>
             <tbody class="text-slate-600">
               
               <!-- CAPTURE 4 : ÉNERGIE ACTIVE (VERT SUPPRIMÉ -> STYLE ÉPURÉ) -->
               <tr class="bg-white/60 border-l-[12px] border-emerald-400/50">
-                <td class="p-6 px-8 font-black uppercase text-[12px] text-emerald-600 tracking-wider">Énergie Active (kWh)</td>
+                <td class="p-6 px-8 font-black uppercase text-[12px] text-emerald-600 tracking-wider">{{ languageService.translate('activeEnergyLabel') }}</td>
                 <!-- CHIFFRES STYLE PROFESSIONNEL MONO -->
                 <td class="p-6 text-center font-mono font-black text-[#1e293b] text-xl">{{ bill().activeEnergy | number:'1.2-2' }}</td>
                 <td class="p-6 text-center text-slate-300">-</td>
@@ -69,19 +70,19 @@ import { AssetStateService } from '../services/asset-state.service';
 
               <!-- Lignes de Détails -->
               <tr class="border-b border-white/50">
-                <td class="p-4 px-14 text-[11px] font-bold text-slate-400 uppercase italic">Consommation Jour</td>
+                <td class="p-4 px-14 text-[11px] font-bold text-slate-400 uppercase italic">{{ languageService.translate('dayConsumption') }}</td>
                 <td class="p-4 text-center font-mono font-bold text-slate-600">{{ (bill().activeEnergy * 0.4) | number:'1.2-2' }}</td>
                 <td class="p-4 text-center font-mono text-slate-400 text-xs">0.290</td>
                 <td class="p-4 px-10 text-right font-mono font-bold text-slate-600">{{ (bill().activeEnergy * 0.4 * 0.29) | number:'1.3-3' }}</td>
               </tr>
               <tr class="border-b border-white/50">
-                <td class="p-4 px-14 text-[11px] font-bold text-blue-400/80 uppercase italic">Pointe (Matin & Soir)</td>
+                <td class="p-4 px-14 text-[11px] font-bold text-blue-400/80 uppercase italic">{{ languageService.translate('peakConsumption') }}</td>
                 <td class="p-4 text-center font-mono font-black text-blue-700/70">{{ (bill().activeEnergy * 0.2) | number:'1.2-2' }}</td>
                 <td class="p-4 text-center font-mono font-bold text-blue-300 text-xs">0.417</td>
                 <td class="p-4 px-10 text-right font-mono font-black text-blue-700/70">{{ (bill().activeEnergy * 0.2 * 0.417) | number:'1.3-3' }}</td>
               </tr>
               <tr class="border-b border-white/50">
-                <td class="p-4 px-14 text-[11px] font-bold text-slate-400 uppercase italic">Consommation Nuit</td>
+                <td class="p-4 px-14 text-[11px] font-bold text-slate-400 uppercase italic">{{ languageService.translate('nightConsumption') }}</td>
                 <td class="p-4 text-center font-mono font-bold text-slate-600">{{ (bill().activeEnergy * 0.4) | number:'1.2-2' }}</td>
                 <td class="p-4 text-center font-mono text-slate-400 text-xs">0.222</td>
                 <td class="p-4 px-10 text-right font-mono font-bold text-slate-600">{{ (bill().activeEnergy * 0.4 * 0.222) | number:'1.3-3' }}</td>
@@ -89,7 +90,7 @@ import { AssetStateService } from '../services/asset-state.service';
 
               <!-- Redevance -->
               <tr class="border-b border-white/50 bg-slate-50/30">
-                <td class="p-6 px-8 font-black text-slate-400 text-[11px] uppercase tracking-widest">Redevance Puissance</td>
+                <td class="p-6 px-8 font-black text-slate-400 text-[11px] uppercase tracking-widest">{{ languageService.translate('powerCharge') }}</td>
                 <td class="p-6 text-center text-[10px] text-slate-300 font-bold uppercase italic">Forfait Annuel</td>
                 <td class="p-6 text-center font-mono font-bold text-slate-400 text-xs">11.000</td>
                 <td class="p-6 px-10 text-right font-mono font-black text-[#1e293b] text-lg">{{ bill().primePuissance | number:'1.3-3' }}</td>
@@ -97,13 +98,13 @@ import { AssetStateService } from '../services/asset-state.service';
 
               <!-- TVA -->
               <tr class="bg-red-50/5 border-b border-white/50">
-                <td colspan="3" class="p-5 px-8 font-black text-[11px] text-slate-300 uppercase tracking-widest">TVA sur Consommation (19%)</td>
+                <td colspan="3" class="p-5 px-8 font-black text-[11px] text-slate-300 uppercase tracking-widest">{{ languageService.translate('tvaConsumption') }}</td>
                 <td class="p-5 px-10 text-right font-mono font-black text-red-400/80 text-lg">{{ calculateTVA() | number:'1.3-3' }}</td>
               </tr>
 
               <!-- CAPTURE 2 : TOTAL AVEC DÉGRADÉ ET TRANSPARENCE -->
               <tr class="bg-gradient-to-r from-cyan-400/90 to-purple-600/90 text-white shadow-2xl">
-                <td colspan="3" class="p-6 px-10 text-xl font-black uppercase tracking-[0.4em] italic">Total Net TTC</td>
+                <td colspan="3" class="p-6 px-10 text-xl font-black uppercase tracking-[0.4em] italic">{{ languageService.translate('totalNetTTC') }}</td>
                 <td class="p-6 px-10 text-right">
                   <span class="text-4xl font-mono font-black italic tracking-tighter">{{ calculateTotal() | number:'1.3-3' }}</span>
                   <small class="text-[10px] uppercase font-bold ml-2 opacity-70 italic">DT</small>
@@ -115,31 +116,31 @@ import { AssetStateService } from '../services/asset-state.service';
 
         <div class="mt-10 grid gap-6 md:grid-cols-3">
           <div class="bg-slate-50 rounded-[2rem] p-6 border border-slate-200 shadow-sm">
-            <div class="text-[10px] uppercase tracking-[0.25em] font-black text-slate-500 mb-3">Période facturée</div>
-            <div class="text-3xl font-black text-slate-900">{{ getMonthLabel(bill().month ?? selectedMonth()) }} {{ bill().year ?? selectedYear() }}</div>
-            <p class="mt-3 text-sm text-slate-500 leading-relaxed">Consommation facturée en dinars pour l'asset sélectionné.</p>
+            <div class="text-[10px] uppercase tracking-[0.25em] font-black text-slate-500 mb-3">{{ languageService.translate('billedPeriod') }}</div>
+            <div class="text-3xl font-black text-slate-900">{{ getMonthLabel(selectedMonth()) }} {{ selectedYear() }}</div>
+            <p class="mt-3 text-sm text-slate-500 leading-relaxed">{{ languageService.translate('invoiceDetails') }}</p>
           </div>
 
           <div class="bg-gradient-to-r from-cyan-400 to-purple-500 text-white rounded-[2rem] p-6 shadow-[0_0_30px_rgba(59,130,246,0.18)]">
-            <div class="text-[10px] uppercase tracking-[0.25em] font-black opacity-80">Montant total TTC</div>
+            <div class="text-[10px] uppercase tracking-[0.25em] font-black opacity-80">{{ languageService.translate('billedAmount') }}</div>
             <div class="mt-4 text-4xl font-black">{{ calculateTotal() | number:'1.2-2' }}</div>
             <div class="mt-2 text-sm opacity-80">DT</div>
           </div>
 
           <div class="bg-white rounded-[2rem] p-6 border border-slate-200 shadow-sm">
-            <div class="text-[10px] uppercase tracking-[0.25em] font-black text-slate-500 mb-3">Projection annuelle</div>
+            <div class="text-[10px] uppercase tracking-[0.25em] font-black text-slate-500 mb-3">{{ languageService.translate('annualProjection') }}</div>
             <div class="text-3xl font-black text-slate-900">{{ calculateAnnualProjection() | number:'1.2-2' }}</div>
-            <p class="mt-3 text-sm text-slate-500 leading-relaxed">Estimation sur 12 mois basée sur la consommation du mois sélectionné.</p>
+            <p class="mt-3 text-sm text-slate-500 leading-relaxed">{{ languageService.translate('monthlyAmount') }}</p>
           </div>
         </div>
 
         <div class="mt-10 bg-white/95 rounded-[2rem] border border-white/70 shadow-[0_20px_60px_rgba(15,23,42,0.08)] p-6 backdrop-blur-xl">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>
-              <div class="text-[10px] uppercase tracking-[0.25em] font-black text-slate-500 mb-2">Diagramme de consommation annuelle</div>
+              <div class="text-[10px] uppercase tracking-[0.25em] font-black text-slate-500 mb-2">{{ languageService.translate('annualConsumptionChart') }}</div>
               <div class="text-xl font-black text-slate-900">{{ assetName() }} - {{ selectedYear() }}</div>
             </div>
-            <div class="text-sm text-slate-500">Montant TTC par mois (DT)</div>
+            <div class="text-sm text-slate-500">{{ languageService.translate('monthlyAmount') }}</div>
           </div>
 
           <div class="mx-auto max-w-[1080px] grid grid-cols-12 gap-2 items-end h-64">
@@ -153,10 +154,6 @@ import { AssetStateService } from '../services/asset-state.service';
           </div>
         </div>
 
-        <div class="mt-8 flex justify-between items-center opacity-30 px-4">
-          <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.4em]">Volt EMS Intelligence v2.0</p>
-          <div class="w-24 h-px bg-slate-400"></div>
-        </div>
       </div>
     </div>
   `,
@@ -235,6 +232,7 @@ export class BillingComponent implements OnInit {
   private http = inject(HttpClient);
   public authService = inject(AuthService);
   private assetService = inject(AssetStateService);
+  public languageService = inject(LanguageService);
   window = window;
 
   assetName = signal<string>('Équipement');
@@ -251,20 +249,7 @@ export class BillingComponent implements OnInit {
   annualBilling = signal<any[]>([]);
   selectedMonth = signal<number>(new Date().getMonth() + 1);
   selectedYear = signal<number>(new Date().getFullYear());
-  months = [
-    { value: 1, label: 'Janvier' },
-    { value: 2, label: 'Février' },
-    { value: 3, label: 'Mars' },
-    { value: 4, label: 'Avril' },
-    { value: 5, label: 'Mai' },
-    { value: 6, label: 'Juin' },
-    { value: 7, label: 'Juillet' },
-    { value: 8, label: 'Août' },
-    { value: 9, label: 'Septembre' },
-    { value: 10, label: 'Octobre' },
-    { value: 11, label: 'Novembre' },
-    { value: 12, label: 'Décembre' }
-  ];
+  months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1 }));
   years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
 
   ngOnInit() {
@@ -313,13 +298,11 @@ export class BillingComponent implements OnInit {
   }
 
   getMonthLabel(month?: number) {
-    const entry = this.months.find(m => m.value === month);
-    return entry ? entry.label : 'Mois';
+    return month ? this.languageService.translateMonth(month) : this.languageService.translate('monthLabel');
   }
 
   getMonthShortLabel(month?: number) {
-    const label = this.getMonthLabel(month);
-    return label.length > 3 ? label.slice(0, 3) : label;
+    return month ? this.languageService.translateMonthShort(month) : this.languageService.translate('monthLabel');
   }
 
   getAnnualMaxAmount() {
@@ -336,6 +319,22 @@ export class BillingComponent implements OnInit {
     return Number(value);
   }
 
+  onMonthChange(event: Event) {
+    const value = Number((event.target as HTMLSelectElement).value);
+    if (!Number.isNaN(value) && value >= 1 && value <= 12) {
+      this.selectedMonth.set(value);
+      this.loadBillingData();
+    }
+  }
+
+  onYearChange(event: Event) {
+    const value = Number((event.target as HTMLInputElement).value);
+    if (!Number.isNaN(value) && value >= 2000) {
+      this.selectedYear.set(value);
+      this.loadBillingData();
+    }
+  }
+
   calculateTotal() {
     return this.calculateEnergyHT() + this.bill().primePuissance + this.calculateTVA();
   }
@@ -350,7 +349,10 @@ export class BillingComponent implements OnInit {
     const name = this.assetName();
     const month = this.selectedMonth();
     const year = this.selectedYear();
-    const monthLabel = this.months.find(m => m.value === month)?.label || String(month);
+    const t = (key: string) => this.languageService.translate(key);
+    const monthLabel = this.languageService.translateMonth(month);
+    const issueLocale = this.languageService.language() === 'en' ? 'en-US' : 'fr-FR';
+    const issueDate = new Date().toLocaleDateString(issueLocale);
     
     // Generate HTML content for the invoice
     const htmlContent = `
@@ -358,7 +360,7 @@ export class BillingComponent implements OnInit {
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Facture - ${name} ${monthLabel} ${year}</title>
+  <title>${t('invoiceTitle')} - ${name} ${monthLabel} ${year}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1e293b; background: white; }
@@ -381,60 +383,60 @@ export class BillingComponent implements OnInit {
 <body>
   <div class="invoice-box">
     <div class="header">
-      <h1>⚡ FACTURE</h1>
-      <p>Équipement: ${name}</p>
-      <p>Période : ${monthLabel} ${year}</p>
-      <p>Date d'émission : ${new Date().toLocaleDateString('fr-FR')}</p>
+      <h1>${t('invoiceTitle')}</h1>
+      <p>${t('invoiceEquipment')}: ${name}</p>
+      <p>${t('invoicePeriod')} : ${monthLabel} ${year}</p>
+      <p>${t('invoiceIssuedDate')} : ${issueDate}</p>
     </div>
     
     <table>
       <thead>
         <tr>
-          <th>Désignation / Libellé</th>
-          <th>Consommation</th>
-          <th>P.U (DT)</th>
-          <th>Montant (DT)</th>
+          <th>${t('designation')}</th>
+          <th>${t('consumption')}</th>
+          <th>${t('unitPrice')}</th>
+          <th>${t('amount')}</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td><strong>Énergie Active (kWh)</strong></td>
+          <td><strong>${t('activeEnergyLabel')}</strong></td>
           <td>${b.activeEnergy?.toFixed(2) || '0.00'}</td>
           <td>-</td>
           <td>${this.calculateEnergyHT().toFixed(3)}</td>
         </tr>
         <tr>
-          <td style="padding-left: 30px;">Consommation Jour</td>
+          <td style="padding-left: 30px;">${t('dayConsumption')}</td>
           <td>${(b.activeEnergy * 0.4).toFixed(2)}</td>
           <td>0.290</td>
           <td>${(b.activeEnergy * 0.4 * 0.29).toFixed(3)}</td>
         </tr>
         <tr>
-          <td style="padding-left: 30px;">Pointe (Matin & Soir)</td>
+          <td style="padding-left: 30px;">${t('peakConsumption')}</td>
           <td>${(b.activeEnergy * 0.2).toFixed(2)}</td>
           <td>0.417</td>
           <td>${(b.activeEnergy * 0.2 * 0.417).toFixed(3)}</td>
         </tr>
         <tr>
-          <td style="padding-left: 30px;">Consommation Nuit</td>
+          <td style="padding-left: 30px;">${t('nightConsumption')}</td>
           <td>${(b.activeEnergy * 0.4).toFixed(2)}</td>
           <td>0.222</td>
           <td>${(b.activeEnergy * 0.4 * 0.222).toFixed(3)}</td>
         </tr>
         <tr>
-          <td><strong>Prime Puissance (DT)</strong></td>
+          <td><strong>${t('powerCharge')} (DT)</strong></td>
           <td>-</td>
           <td>-</td>
           <td>${b.primePuissance?.toFixed(3) || '0.000'}</td>
         </tr>
         <tr>
-          <td><strong>TVA (19%)</strong></td>
+          <td><strong>${t('tvaConsumption')}</strong></td>
           <td>-</td>
           <td>-</td>
           <td>${this.calculateTVA().toFixed(3)}</td>
         </tr>
         <tr class="total-row">
-          <td><strong>TOTAL TTC</strong></td>
+          <td><strong>${t('totalNetTTC')}</strong></td>
           <td>-</td>
           <td>-</td>
           <td><strong>${this.calculateTotal().toFixed(3)} DT</strong></td>
@@ -443,7 +445,7 @@ export class BillingComponent implements OnInit {
     </table>
     
     <div class="footer">
-      <p>Document généré par le système EMS - Energy Management System</p>
+      <p>${t('invoiceGeneratedBy')}</p>
     </div>
   </div>
 </body>
@@ -453,7 +455,7 @@ export class BillingComponent implements OnInit {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Facture_${name.replace(/\s+/g, '_')}_${monthLabel}_${year}_${new Date().toISOString().slice(0,10)}.pdf.html`;
+    link.download = `${t('invoiceTitle').replace(/\s+/g, '_')}_${name.replace(/\s+/g, '_')}_${monthLabel}_${year}_${new Date().toISOString().slice(0,10)}.pdf.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

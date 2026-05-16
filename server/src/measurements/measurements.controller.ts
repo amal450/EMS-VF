@@ -139,6 +139,7 @@ export class MeasurementsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('format') format?: string,
+    @Query('lang') lang?: string,
   ) {
     const parsedStart = this.parseIsoDate(startDate);
     const parsedEnd = this.parseIsoDate(endDate);
@@ -155,6 +156,25 @@ export class MeasurementsController {
     const startLabel = this.formatReportDate(start);
     const endLabel = this.formatReportDate(end);
     const rangeLabel = `${startLabel} → ${endLabel}`;
+    const reportLang = lang === 'en' ? 'en' : 'fr';
+    const dateLocale = reportLang === 'en' ? 'en-US' : 'fr-FR';
+    const reportPrefix = reportLang === 'en' ? 'Report' : 'Rapport';
+    const reportTitle = reportLang === 'en' ? 'OPERATIONS REPORT' : 'RAPPORT D\'EXPLOITATION';
+    const reportDescription = reportLang === 'en'
+      ? `Report of line voltages, phase currents and power indicators for the selected asset.`
+      : `Analyse des tensions, courants de phase et indicateurs de puissance pour l'équipement sélectionné.`;
+    const chartSectionTitle = reportLang === 'en' ? 'Historical Charts' : 'Courbes Historiques';
+    const descriptionSectionTitle = reportLang === 'en' ? 'Analysis Summary' : 'Description des Analyses';
+    const noDataText = reportLang === 'en'
+      ? 'No measurements recorded for the selected period. Charts will remain empty.'
+      : 'Aucune mesure enregistrée pour la période sélectionnée. Les courbes resteront vides.';
+    const dataSectionTitle = reportLang === 'en' ? 'Historical operating data' : 'Données Historiques d\'Exploitation';
+    const emptyTableText = reportLang === 'en'
+      ? 'No measurements available for the selected period.'
+      : 'Aucune mesure disponible pour la période sélectionnée.';
+    const footerText = reportLang === 'en'
+      ? 'Volt EMS Intelligence v2.0 | Generated on'
+      : 'Volt EMS Intelligence v2.0 | Généré le';
     const isPdf = format === 'pdf';
 
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -201,42 +221,43 @@ export class MeasurementsController {
 </head>
 <body>
   <div class="header">
-    <h1>⚡ RAPPORT D'EXPLOITATION</h1>
-    <p>Équipement ID #${id}</p>
-    <p>Date de début : ${startLabel}</p>
-    <p>Date de fin : ${endLabel}</p>
-    <p>Intervalle sélectionné : ${rangeLabel}</p>
-    <p>Date d'émission : ${new Date().toLocaleDateString('fr-FR')}</p>
+    <h1>⚡ ${reportTitle}</h1>
+    <p>${reportLang === 'en' ? 'Equipment ID' : 'Équipement ID'} #${id}</p>
+    <p>${reportLang === 'en' ? 'Start date' : 'Date de début'} : ${startLabel}</p>
+    <p>${reportLang === 'en' ? 'End date' : 'Date de fin'} : ${endLabel}</p>
+    <p>${reportLang === 'en' ? 'Selected interval' : 'Intervalle sélectionné'} : ${rangeLabel}</p>
+    <p>${reportLang === 'en' ? 'Issue date' : 'Date d\'émission'} : ${new Date().toLocaleDateString(dateLocale)}</p>
   </div>
   <div class="section">
-    <h2>📊 Description des Analyses</h2>
+    <h2>📊 ${descriptionSectionTitle}</h2>
+    <p style="color: #64748b; margin-bottom: 15px;">${reportDescription}</p>
     <ul style="padding-left: 20px; line-height: 1.8;">
-      <li><strong>Rapport de tension :</strong> Analyse des tensions phase-neutre (V1N, V2N, V3N) et phase-phase (V12, V23, V31)</li>
-      <li><strong>Rapport de courant :</strong> Suivi de la charge sur chaque phase (I1, I2, I3) et analyse de l'équilibrage</li>
-      <li><strong>Rapport de puissance :</strong> Utilisation de la puissance active (TKW) et du facteur de puissance (PF)</li>
-      <li><strong>Rapport de fréquence :</strong> Analyse de la stabilité réseau autour de 50 Hz</li>
-      <li><strong>Rapport de qualité :</strong> Combinaison des indicateurs pour une vue globale</li>
+      <li><strong>${reportLang === 'en' ? 'Voltage report:' : 'Rapport de tension :'}</strong> ${reportLang === 'en' ? 'Analysis of phase-to-neutral voltages (V1N, V2N, V3N) and phase-to-phase voltages (V12, V23, V31).' : 'Analyse des tensions phase-neutre (V1N, V2N, V3N) et phase-phase (V12, V23, V31).'}</li>
+      <li><strong>${reportLang === 'en' ? 'Current report:' : 'Rapport de courant :'}</strong> ${reportLang === 'en' ? 'Tracking load across each phase (I1, I2, I3) and imbalance analysis.' : 'Suivi de la charge sur chaque phase (I1, I2, I3) et analyse de l\'équilibrage.'}</li>
+      <li><strong>${reportLang === 'en' ? 'Power report:' : 'Rapport de puissance :'}</strong> ${reportLang === 'en' ? 'Usage of active power (TKW) and power factor (PF).' : 'Utilisation de la puissance active (TKW) et du facteur de puissance (PF).'}</li>
+      <li><strong>${reportLang === 'en' ? 'Frequency report:' : 'Rapport de fréquence :'}</strong> ${reportLang === 'en' ? 'Analysis of grid stability around 50 Hz.' : 'Analyse de la stabilité réseau autour de 50 Hz.'}</li>
+      <li><strong>${reportLang === 'en' ? 'Quality report:' : 'Rapport de qualité :'}</strong> ${reportLang === 'en' ? 'Combination of indicators for a holistic view.' : 'Combinaison des indicateurs pour une vue globale.'}</li>
     </ul>
   </div>
 
   <div class="section">
-    <h2>📈 Courbes Historiques</h2>
-    ${!hasData ? `<p style="color: #64748b; margin-bottom: 15px;">Aucune mesure enregistrée pour la période sélectionnée. Les courbes resteront vides.</p>` : ''}
+    <h2>📈 ${chartSectionTitle}</h2>
+    ${!hasData ? `<p style="color: #64748b; margin-bottom: 15px;">${noDataText}</p>` : ''}
     <div class="charts-grid">
       <div class="chart-box">
-        <h3>Puissance (kW)</h3>
+        <h3>${reportLang === 'en' ? 'Power (kW)' : 'Puissance (kW)'}</h3>
         <div class="chart-container"><canvas id="powerChart"></canvas></div>
       </div>
       <div class="chart-box">
-        <h3>Tension (V)</h3>
+        <h3>${reportLang === 'en' ? 'Voltage (V)' : 'Tension (V)'}</h3>
         <div class="chart-container"><canvas id="voltageChart"></canvas></div>
       </div>
       <div class="chart-box">
-        <h3>Intensité (A)</h3>
+        <h3>${reportLang === 'en' ? 'Current (A)' : 'Intensité (A)'}</h3>
         <div class="chart-container"><canvas id="currentChart"></canvas></div>
       </div>
       <div class="chart-box">
-        <h3>Vue Combinée</h3>
+        <h3>${reportLang === 'en' ? 'Combined View' : 'Vue Combinée'}</h3>
         <div class="chart-container"><canvas id="combinedChart"></canvas></div>
       </div>
     </div>
@@ -255,7 +276,7 @@ export class MeasurementsController {
       data: {
         labels: labels,
         datasets: [{
-          label: 'Puissance (kW)',
+          label: '${reportLang === 'en' ? 'Power (kW)' : 'Puissance (kW)'}',
           data: powerData,
           borderColor: '#3b82f6',
           backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -272,7 +293,7 @@ export class MeasurementsController {
       data: {
         labels: labels,
         datasets: [{
-          label: 'Tension (V)',
+          label: '${reportLang === 'en' ? 'Voltage (V)' : 'Tension (V)'}',
           data: voltageData,
           borderColor: '#f59e0b',
           backgroundColor: 'rgba(245, 158, 11, 0.1)',
@@ -289,7 +310,7 @@ export class MeasurementsController {
       data: {
         labels: labels,
         datasets: [{
-          label: 'Intensité (A)',
+          label: '${reportLang === 'en' ? 'Current (A)' : 'Intensité (A)'}',
           data: currentData,
           borderColor: '#10b981',
           backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -306,9 +327,9 @@ export class MeasurementsController {
       data: {
         labels: labels,
         datasets: [
-          { label: 'Puissance (kW)', data: powerData, borderColor: '#3b82f6', tension: 0.4 },
-          { label: 'Tension (V)', data: voltageData, borderColor: '#f59e0b', tension: 0.4 },
-          { label: 'Intensité (A)', data: currentData, borderColor: '#10b981', tension: 0.4 }
+          { label: '${reportLang === 'en' ? 'Power (kW)' : 'Puissance (kW)'}', data: powerData, borderColor: '#3b82f6', tension: 0.4 },
+          { label: '${reportLang === 'en' ? 'Voltage (V)' : 'Tension (V)'}', data: voltageData, borderColor: '#f59e0b', tension: 0.4 },
+          { label: '${reportLang === 'en' ? 'Current (A)' : 'Intensité (A)'}', data: currentData, borderColor: '#10b981', tension: 0.4 }
         ]
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } }
@@ -316,21 +337,21 @@ export class MeasurementsController {
   </script>
 
   <div class="section">
-    <h2>📋 Données Historiques d'Exploitation</h2>
+    <h2>📋 ${dataSectionTitle}</h2>
     <table>
       <thead>
         <tr>
-          <th>Horodatage</th>
-          <th>Tension V1N (V)</th>
-          <th>Tension V2N (V)</th>
-          <th>Tension V3N (V)</th>
-          <th>Intensité I1 (A)</th>
-          <th>Intensité I2 (A)</th>
-          <th>Intensité I3 (A)</th>
-          <th>Puissance (kW)</th>
-          <th>Énergie (kWh)</th>
-          <th>Fréquence (Hz)</th>
-          <th>Facteur PF</th>
+          <th>${reportLang === 'en' ? 'Timestamp' : 'Horodatage'}</th>
+          <th>${reportLang === 'en' ? 'Voltage V1N (V)' : 'Tension V1N (V)'}</th>
+          <th>${reportLang === 'en' ? 'Voltage V2N (V)' : 'Tension V2N (V)'}</th>
+          <th>${reportLang === 'en' ? 'Voltage V3N (V)' : 'Tension V3N (V)'}</th>
+          <th>${reportLang === 'en' ? 'Current I1 (A)' : 'Intensité I1 (A)'}</th>
+          <th>${reportLang === 'en' ? 'Current I2 (A)' : 'Intensité I2 (A)'}</th>
+          <th>${reportLang === 'en' ? 'Current I3 (A)' : 'Intensité I3 (A)'}</th>
+          <th>${reportLang === 'en' ? 'Power (kW)' : 'Puissance (kW)'}</th>
+          <th>${reportLang === 'en' ? 'Energy (kWh)' : 'Énergie (kWh)'}</th>
+          <th>${reportLang === 'en' ? 'Frequency (Hz)' : 'Fréquence (Hz)'}</th>
+          <th>${reportLang === 'en' ? 'Power Factor' : 'Facteur PF'}</th>
         </tr>
       </thead>
       <tbody>
@@ -339,7 +360,7 @@ export class MeasurementsController {
       if (data.length === 0) {
         html += `
         <tr>
-          <td colspan="11" style="text-align:center; padding: 18px; color: #64748b;">Aucune mesure disponible pour la période sélectionnée.</td>
+          <td colspan="11" style="text-align:center; padding: 18px; color: #64748b;">${emptyTableText}</td>
         </tr>`;
       } else {
         data.forEach(d => {
@@ -380,25 +401,53 @@ export class MeasurementsController {
       return res.status(200).send(html);
     }
 
-    // Format CSV par défaut
-    let csv = "RAPPORT D'EXPLOITATION DES DONNEES ELECTRIQUES TRIPHASEES\n";
-    csv += `EQUIPEMENT : ID #${id}\n`;
-    csv += `DATE DE DEBUT : ${startLabel}\n`;
-    csv += `DATE DE FIN : ${endLabel}\n`;
-    csv += `INTERVALLE SELECTIONNE : ${rangeLabel}\n`;
-    csv += `DATE DU RAPPORT : ${new Date().toLocaleDateString('fr-FR')}\n\n`;
+    // Default CSV format
+    const csvTitle = reportLang === 'en'
+      ? 'OPERATIONS REPORT FOR THREE-PHASE ELECTRICAL DATA'
+      : "RAPPORT D'EXPLOITATION DES DONNEES ELECTRIQUES TRIPHASEES";
+    const equipmentLabel = reportLang === 'en' ? 'EQUIPMENT' : 'EQUIPEMENT';
+    const dateFromLabel = reportLang === 'en' ? 'START DATE' : 'DATE DE DEBUT';
+    const dateToLabel = reportLang === 'en' ? 'END DATE' : 'DATE DE FIN';
+    const intervalLabel = reportLang === 'en' ? 'SELECTED INTERVAL' : 'INTERVALLE SELECTIONNE';
+    const reportDateLabel = reportLang === 'en' ? 'REPORT DATE' : 'DATE DU RAPPORT';
+    const descriptionLabel = reportLang === 'en' ? 'ANALYSIS DESCRIPTION' : 'DESCRIPTION DES ANALYSES';
+    const dataLabel = reportLang === 'en' ? 'HISTORICAL OPERATING DATA' : 'DONNEES HISTORIQUES D\'EXPLOITATION';
+    const headerLine = reportLang === 'en'
+      ? 'Timestamp,Voltage_V1N(V),Voltage_V2N(V),Voltage_V3N(V),Voltage_U12(V),Current_I1(A),Current_I2(A),Current_I3(A),Active_Power(kW),Energy(kWh),Frequency(Hz),Power_Factor(PF)'
+      : 'Horodatage,Tension_V1N(V),Tension_V2N(V),Tension_V3N(V),Tension_U12(V),Intensite_I1(A),Intensite_I2(A),Intensite_I3(A),Puissance_Active(kW),Energie_Active(kWh),Frequence(Hz),Facteur_Puissance(PF)';
 
-    csv += "DESCRIPTION DES ANALYSES :\n";
-    csv += "1. Rapport de tension : Analyse des tensions phase-neutre (V1N, V2N, V3N) et phase-phase (V12, V23, V31).\n";
-    csv += "2. Rapport de courant : Suivi de la charge sur chaque phase (I1, I2, I3) et analyse de l'equilibrage.\n";
-    csv += "3. Rapport de puissance : Utilisation de la puissance active (TKW) et du facteur de puissance (PF).\n";
-    csv += "4. Rapport de consommation : Base sur KWH et KVAH pour le rendement energetique.\n";
-    csv += "5. Rapport de frequence : Analyse de la stabilite reseau autour de 50 Hz.\n";
-    csv += "6. Rapport de qualite : Combinaison des indicateurs pour une vue globale.\n";
-    csv += "7. Indicateurs calcules : Desequilibre de tension, de courant et rendement (KWH/KVAH).\n\n";
+    let csv = `${csvTitle}\n`;
+    csv += `${equipmentLabel} : ID #${id}\n`;
+    csv += `${dateFromLabel} : ${startLabel}\n`;
+    csv += `${dateToLabel} : ${endLabel}\n`;
+    csv += `${intervalLabel} : ${rangeLabel}\n`;
+    csv += `${reportDateLabel} : ${new Date().toLocaleDateString(dateLocale)}\n\n`;
 
-    csv += "DONNEES HISTORIQUES D'EXPLOITATION\n";
-    csv += "Horodatage,Tension_V1N(V),Tension_V2N(V),Tension_V3N(V),Tension_U12(V),Intensite_I1(A),Intensite_I2(A),Intensite_I3(A),Puissance_Active(kW),Energie_Active(kWh),Frequence(Hz),Facteur_Puissance(PF)\n";
+    csv += `${descriptionLabel}\n`;
+    csv += reportLang === 'en'
+      ? '1. Voltage report: Analysis of phase-to-neutral voltages (V1N, V2N, V3N) and phase-to-phase voltages (V12, V23, V31).\n'
+      : '1. Rapport de tension : Analyse des tensions phase-neutre (V1N, V2N, V3N) et phase-phase (V12, V23, V31).\n';
+    csv += reportLang === 'en'
+      ? '2. Current report: Tracking the load on each phase (I1, I2, I3) and imbalance analysis.\n'
+      : '2. Rapport de courant : Suivi de la charge sur chaque phase (I1, I2, I3) et analyse de l\'équilibrage.\n';
+    csv += reportLang === 'en'
+      ? '3. Power report: Use of active power (TKW) and power factor (PF).\n'
+      : '3. Rapport de puissance : Utilisation de la puissance active (TKW) et du facteur de puissance (PF).\n';
+    csv += reportLang === 'en'
+      ? '4. Consumption report: Based on KWH and KVAH for energy efficiency.\n'
+      : '4. Rapport de consommation : Base sur KWH et KVAH pour le rendement énergétique.\n';
+    csv += reportLang === 'en'
+      ? '5. Frequency report: Analysis of grid stability around 50 Hz.\n'
+      : '5. Rapport de fréquence : Analyse de la stabilité réseau autour de 50 Hz.\n';
+    csv += reportLang === 'en'
+      ? '6. Quality report: Combination of indicators for an overall view.\n'
+      : '6. Rapport de qualité : Combinaison des indicateurs pour une vue globale.\n';
+    csv += reportLang === 'en'
+      ? '7. Calculated indicators: Voltage imbalance, current imbalance and efficiency (KWH/KVAH).\n\n'
+      : '7. Indicateurs calculés : Déséquilibre de tension, de courant et rendement (KWH/KVAH).\n\n';
+
+    csv += `${dataLabel}\n`;
+    csv += `${headerLine}\n`;
     
     data.forEach(d => {
       const v = d.avgvoltage ? d.avgvoltage.toFixed(2) : "230.00";
@@ -409,7 +458,7 @@ export class MeasurementsController {
     });
 
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=Rapport_EMS_Asset_${id}.csv`);
+    res.setHeader('Content-Disposition', `attachment; filename=${reportPrefix}_EMS_Asset_${id}.csv`);
     return res.status(200).send(csv);
   }
 }

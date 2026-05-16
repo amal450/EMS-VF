@@ -2,7 +2,9 @@ import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../services/auth.service';
+import { LanguageService } from '../services/language.service';
 import { Subject, takeUntil } from 'rxjs';
+import { take } from 'rxjs/operators';
 
 @Component({
   selector: 'app-profile',
@@ -12,6 +14,7 @@ import { Subject, takeUntil } from 'rxjs';
 })
 export class ProfileComponent implements OnInit, OnDestroy {
   public authService = inject(AuthService);
+  public languageService = inject(LanguageService);
   private destroy$ = new Subject<void>();
   
   userProfile = signal<any>({ username: 'Chargement...', email: '', role: '' });
@@ -21,7 +24,8 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   // --- Signaux pour la Modal de Succès ---
   showSuccessModal = signal(false);
-  successMessage = signal('');
+  successMessageKey = signal('');
+  successMessageParams = signal<Record<string, string> | undefined>(undefined);
   modalTheme = signal<'green' | 'purple'>('green');
 
   ngOnInit() {
@@ -46,7 +50,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   saveProfile() {
     const user = this.authService.currentUserValue;
     if (!user || !user.id) {
-      this.errorMessage.set('Utilisateur non connecté');
+      this.errorMessage.set(this.languageService.translate('userNotLogged'));
       return;
     }
 
@@ -60,9 +64,9 @@ export class ProfileComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.isLoading.set(false);
         this.modalTheme.set('green');
-        this.successMessage.set('Vos informations ont été mises à jour avec succès !');
+        this.successMessageKey.set('profileUpdated');
+        this.successMessageParams.set(undefined);
         this.showSuccessModal.set(true);
-
         const updatedUser = Array.isArray(res) ? res[0] : res;
         if (updatedUser) {
           this.userProfile.set({
@@ -83,7 +87,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isLoading.set(false);
-        this.errorMessage.set('Erreur lors de la mise à jour');
+        this.errorMessage.set(this.languageService.translate('updateError'));
         console.error('Update profile error:', err);
       }
     });
@@ -92,17 +96,17 @@ export class ProfileComponent implements OnInit, OnDestroy {
   updatePassword() {
     const user = this.authService.currentUserValue;
     if (!user || !user.id) {
-      this.errorMessage.set('Utilisateur non connecté');
+      this.errorMessage.set(this.languageService.translate('userNotLogged'));
       return;
     }
 
     if (this.passwords().new !== this.passwords().confirm) {
-      this.errorMessage.set('Les mots de passe ne correspondent pas');
+      this.errorMessage.set(this.languageService.translate('passwordsMismatch'));
       return;
     }
 
     if (this.passwords().new.length < 4) {
-      this.errorMessage.set('Le mot de passe doit contenir au moins 4 caractères');
+      this.errorMessage.set(this.languageService.translate('passwordTooShort'));
       return;
     }
 
@@ -113,13 +117,14 @@ export class ProfileComponent implements OnInit, OnDestroy {
       next: () => {
         this.isLoading.set(false);
         this.modalTheme.set('purple');
-        this.successMessage.set('Mot de passe modifié avec succès !');
+        this.successMessageKey.set('passwordChanged');
+        this.successMessageParams.set(undefined);
         this.showSuccessModal.set(true);
         this.passwords.set({ current: '', new: '', confirm: '' });
       },
       error: (err) => {
         this.isLoading.set(false);
-        this.errorMessage.set('Erreur lors de la modification du mot de passe');
+        this.errorMessage.set(this.languageService.translate('passwordUpdateError'));
         console.error('Update password error:', err);
       }
     });

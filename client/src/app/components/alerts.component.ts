@@ -2,6 +2,7 @@ import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../services/auth.service';
+import { LanguageService } from '../services/language.service';
 
 @Component({
   selector: 'app-alerts',
@@ -22,15 +23,15 @@ import { AuthService } from '../services/auth.service';
       <div class="mb-10 flex justify-between items-end">
         <div>
           <h1 class="text-4xl font-black bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent tracking-tight mb-2 uppercase">
-            Journal des Alertes
+            {{ languageService.translate('alertJournal') }}
           </h1>
-          <p class="text-slate-500 font-medium italic">Historique des dépassements de seuils d'intensité détectés en temps réel.</p>
+          <p class="text-slate-500 font-medium italic">{{ languageService.translate('alertsSubtitle') }}</p>
         </div>
         
         <!-- Badge Statut avec Lumière -->
         <div class="bg-white rounded-2xl px-6 py-3 border-2 border-red-100 shadow-[0_0_15px_rgba(239,68,68,0.1)] flex items-center gap-3">
           <span class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span>
-          <span class="text-xs font-black text-slate-700 uppercase tracking-widest">Surveillance Active</span>
+          <span class="text-xs font-black text-slate-700 uppercase tracking-widest">{{ languageService.translate('activeMonitoring') }}</span>
         </div>
       </div>
 
@@ -41,10 +42,10 @@ import { AuthService } from '../services/auth.service';
           
           <!-- Légende des colonnes -->
           <div class="grid grid-cols-12 px-10 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-            <div class="col-span-3">Date & Heure</div>
-            <div class="col-span-3 text-center">Équipement</div>
-            <div class="col-span-3 text-center">Message</div>
-            <div class="col-span-3 text-right">Valeur Mesurée</div>
+            <div class="col-span-3">{{ languageService.translate('dateTime') }}</div>
+            <div class="col-span-3 text-center">{{ languageService.translate('equipment') }}</div>
+            <div class="col-span-3 text-center">{{ languageService.translate('messageLabel') }}</div>
+            <div class="col-span-3 text-right">{{ languageService.translate('measuredValue') }}</div>
           </div>
 
           <!-- CARTES ALERTES (Lumière Permanente au survol) -->
@@ -64,13 +65,13 @@ import { AuthService } from '../services/auth.service';
             <!-- Équipement -->
             <div class="col-span-3 text-center">
               <p class="font-black text-slate-900 uppercase tracking-tight text-lg">{{ a.assetName }}</p>
-              <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Hardware Node</p>
+              <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{{ languageService.translate('hardwareNode') }}</p>
             </div>
 
             <!-- Message Badge -->
             <div class="col-span-3 flex justify-center">
               <span class="px-5 py-2 bg-red-50 text-red-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-100 shadow-sm">
-                {{ a.message }}
+                {{ languageService.translateAlertMessage(a.message) }}
               </span>
             </div>
 
@@ -78,7 +79,7 @@ import { AuthService } from '../services/auth.service';
             <div class="col-span-3 flex justify-end items-center gap-3">
               <div class="text-right">
                 <p class="text-xl font-black text-red-600 leading-none">{{ a.value }}A</p>
-                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Seuil: {{ a.threshold }}A</p>
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{{ languageService.translate('thresholdLabel') }}: {{ a.threshold }}A</p>
               </div>
               <!-- Icône d'alerte lumineuse -->
               <div class="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center shadow-[0_0_10px_rgba(239,68,68,0.2)] border border-red-100">
@@ -89,7 +90,7 @@ import { AuthService } from '../services/auth.service';
               <!-- Bouton Supprimer -->
               <button type="button" (click)="askDeleteAlert(a.id, a.assetName, a.message)" 
                       class="w-7 h-7 rounded-full bg-slate-100 hover:bg-red-500 text-slate-500 hover:text-white flex items-center justify-center transition-all border border-slate-300 hover:border-red-500 font-bold text-lg cursor-pointer shadow-sm hover:shadow-md"
-                      title="Supprimer cette alerte">
+                      [title]="languageService.translate('delete')">
                 ×
               </button>
             </div>
@@ -99,7 +100,7 @@ import { AuthService } from '../services/auth.service';
           <!-- Message si vide -->
           <div *ngIf="alerts().length === 0" class="p-20 text-center text-slate-300 font-bold italic">
             <div class="text-5xl mb-4 opacity-10">🛡️</div>
-            Aucune anomalie détectée dans l'historique.
+            {{ languageService.translate('noAlerts') }}
           </div>
 
         </div>
@@ -110,11 +111,11 @@ import { AuthService } from '../services/auth.service';
     <div *ngIf="showDeleteAlertModal()" class="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-md">
       <div class="bg-white p-10 rounded-[2.5rem] w-96 text-center shadow-[0_0_50px_rgba(239,68,68,0.3)] border border-white animate-in zoom-in duration-200">
         <div class="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl font-bold border border-red-100">!</div>
-        <h3 class="text-2xl font-black text-slate-900 mb-2">Supprimer ?</h3>
-        <p class="text-sm text-slate-400 px-4 mb-8 italic text-center">Voulez-vous vraiment supprimer cette alerte <b>{{ alertToDeleteLabel() }}</b> ?</p>
+        <h3 class="text-2xl font-black text-slate-900 mb-2">{{ languageService.translate('deleteItemTitle') }}</h3>
+        <p class="text-sm text-slate-400 px-4 mb-8 italic text-center">{{ languageService.translate('deleteAlertConfirm', { label: alertToDeleteLabel() }) }}</p>
         <div class="flex gap-4">
-          <button type="button" (click)="showDeleteAlertModal.set(false)" class="flex-1 py-3.5 font-bold bg-slate-100 text-slate-500 rounded-2xl transition">Non</button>
-          <button type="button" (click)="confirmDeleteAlert()" class="flex-1 py-3.5 font-black bg-red-500 text-white rounded-2xl shadow-lg shadow-red-500/30 hover:bg-red-600 transition">Oui, Supprimer</button>
+          <button type="button" (click)="showDeleteAlertModal.set(false)" class="flex-1 py-3.5 font-bold bg-slate-100 text-slate-500 rounded-2xl transition">{{ languageService.translate('no') }}</button>
+          <button type="button" (click)="confirmDeleteAlert()" class="flex-1 py-3.5 font-black bg-red-500 text-white rounded-2xl shadow-lg shadow-red-500/30 hover:bg-red-600 transition">{{ languageService.translate('yes') }}, {{ languageService.translate('delete') }}</button>
         </div>
       </div>
     </div>
@@ -123,6 +124,7 @@ import { AuthService } from '../services/auth.service';
 export class AlertsComponent implements OnInit {
   private http = inject(HttpClient);
   private auth = inject(AuthService);
+  public languageService = inject(LanguageService);
   alerts = signal<any[]>([]);
   lastAlert = signal<any>(null);
   showNotification = signal<boolean>(false);
@@ -149,9 +151,18 @@ export class AlertsComponent implements OnInit {
   }
 
   private showAlertNotification(alert: any) {
-    const dateStr = new Date(alert.timestamp).toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit' });
-    const timeStr = new Date(alert.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const message = `🔴 DERNIÈRE ALERTE (${dateStr} ${timeStr}) : ${alert.message} sur ${alert.assetName} – ${alert.value}A (Seuil ${alert.threshold}A)`;
+    const locale = this.languageService.language() === 'en' ? 'en-US' : 'fr-FR';
+    const dateStr = new Date(alert.timestamp).toLocaleDateString(locale, { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const timeStr = new Date(alert.timestamp).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const translatedMessage = this.languageService.translateAlertMessage(alert.message);
+    const message = this.languageService.translate('latestAlertNotification', {
+      date: dateStr,
+      time: timeStr,
+      message: translatedMessage,
+      asset: alert.assetName,
+      value: alert.value?.toString() ?? '',
+      threshold: alert.threshold?.toString() ?? ''
+    });
     
     this.notificationMessage.set(message);
     this.showNotification.set(true);
@@ -196,14 +207,14 @@ export class AlertsComponent implements OnInit {
         this.alertToDeleteId = null;
         this.alertToDeleteLabel.set('');
         this.reloadAlerts();
-        this.notificationMessage.set('Alerte supprimée avec succès.');
+        this.notificationMessage.set(this.languageService.translate('alertDeleted'));
         this.showNotification.set(true);
         if (this.notificationTimeout) clearTimeout(this.notificationTimeout);
         this.notificationTimeout = setTimeout(() => this.showNotification.set(false), 3000);
       },
       error: (err) => {
         console.error('❌ Erreur suppression alerte:', numId, err);
-        window.alert('Erreur lors de la suppression de l\'alerte');
+        window.alert(this.languageService.translate('alertDeleteError'));
       }
     });
   }

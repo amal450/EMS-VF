@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { AssetStateService } from '../services/asset-state.service';
+import { LanguageService } from '../services/language.service';
 
 @Component({
   selector: 'app-hierarchy',
@@ -17,6 +18,7 @@ export class HierarchyComponent implements OnInit {
   private router = inject(Router);
   public authService = inject(AuthService);
   public assetState = inject(AssetStateService);
+  public languageService = inject(LanguageService);
 
   hierarchy = signal<any[]>([]);
   isLoading = signal(true);
@@ -50,7 +52,7 @@ export class HierarchyComponent implements OnInit {
   loadHierarchy() {
     const token = this.authService.getToken();
     if (!token) {
-      this.errorMessage.set('Non connecté - Veuillez vous reconnecter');
+      this.errorMessage.set(this.languageService.translate('userNotLogged'));
       this.isLoading.set(false);
       return;
     }
@@ -66,7 +68,7 @@ export class HierarchyComponent implements OnInit {
         this.isLoading.set(false);
       },
       error: err => {
-        console.error('Erreur hiérarchie:', err);
+        console.error('Erreur Asset:', err);
         this.errorMessage.set('Erreur: ' + (err.status + ' - ' + (err.error?.message || err.message || 'Erreur inconnue')));
         this.isLoading.set(false);
       }
@@ -192,7 +194,8 @@ export class HierarchyComponent implements OnInit {
   }
 
   getAddButtonLabel(type: string): string {
-    const labels: any = { 'SITE': 'un Site', 'TGBT': 'un TGBT', 'ARMOIRE': 'une Armoire', 'LIGNE': 'une Ligne', 'EQUIPEMENT': 'un Équipement' };
-    return 'Ajouter ' + (labels[type] || 'un élément');
+    const item = this.languageService.translateAssetType(type);
+    const prefix = this.languageService.translate('add');
+    return `${prefix} ${item}`;
   }
 }

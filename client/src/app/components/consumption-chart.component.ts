@@ -1,6 +1,7 @@
 import { Component, Input, OnChanges, SimpleChanges, signal, inject, OnDestroy, OnInit, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { LanguageService } from '../services/language.service';
 import Chart from 'chart.js/auto';
 
 @Component({
@@ -17,9 +18,9 @@ import Chart from 'chart.js/auto';
             <svg class="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
             </svg>
-            SUIVI EN DIRECT (P, V, I)
+            {{ languageService.translate('liveTracking') }}
           </h2>
-          <span class="text-[9px] font-black text-emerald-500 animate-pulse tracking-tighter">● LIVE MONITORING</span>
+          <span class="text-[9px] font-black text-emerald-500 animate-pulse tracking-tighter">● {{ languageService.translate('liveMonitoring') }}</span>
         </div>
         <div class="h-[250px] w-full"><canvas #realtimeCanvas></canvas></div>
       </div>
@@ -31,30 +32,29 @@ import Chart from 'chart.js/auto';
             <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4"/>
             </svg>
-            ANALYSE HISTORIQUE
+            {{ languageService.translate('historyAnalysis') }}
           </h2>
-          
           <div class="flex bg-[#f1f3f9] p-1 rounded-full border border-slate-100 shadow-inner">
             <button (click)="setPeriod('day')" [class.bg-white]="period() === 'day'" [class.text-purple-600]="period() === 'day'"
-                    class="px-5 py-1.5 rounded-full text-[10px] font-bold transition-all text-slate-400">JOUR</button>
+                    class="px-5 py-1.5 rounded-full text-[10px] font-bold transition-all text-slate-400">{{ languageService.translate('day') }}</button>
             <button (click)="setPeriod('week')" [class.bg-white]="period() === 'week'" [class.text-purple-600]="period() === 'week'"
-                    class="px-5 py-1.5 rounded-full text-[10px] font-bold transition-all text-slate-400 mx-1">SEMAINE</button>
+                    class="px-5 py-1.5 rounded-full text-[10px] font-bold transition-all text-slate-400 mx-1">{{ languageService.translate('week') }}</button>
             <button (click)="setPeriod('month')" [class.bg-white]="period() === 'month'" [class.text-purple-600]="period() === 'month'"
-                    class="px-5 py-1.5 rounded-full text-[10px] font-bold transition-all text-slate-400">MOIS</button>
+                    class="px-5 py-1.5 rounded-full text-[10px] font-bold transition-all text-slate-400">{{ languageService.translate('month') }}</button>
           </div>
         </div>
 
         <div class="h-[350px] w-full relative">
            <canvas #historyCanvas></canvas>
            <div *ngIf="noData()" class="absolute inset-0 flex items-center justify-center bg-white/80">
-             <p class="text-slate-400 font-medium text-sm italic">Collecte des données en cours...</p>
+             <p class="text-slate-400 font-medium text-sm italic">{{ languageService.translate('collectingData') }}</p>
            </div>
         </div>
 
         <div class="flex justify-center gap-10 mt-8">
-          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#3b82f6]"></span><span class="text-[10px] font-bold text-slate-500 uppercase">Puissance (kW)</span></div>
-          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#f59e0b]"></span><span class="text-[10px] font-bold text-slate-500 uppercase">Tension (V)</span></div>
-          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#10b981]"></span><span class="text-[10px] font-bold text-slate-500 uppercase">Intensité (A)</span></div>
+          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#3b82f6]"></span><span class="text-[10px] font-bold text-slate-500 uppercase">{{ languageService.translate('powerLegend') }}</span></div>
+          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#f59e0b]"></span><span class="text-[10px] font-bold text-slate-500 uppercase">{{ languageService.translate('voltageLegend') }}</span></div>
+          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-[#10b981]"></span><span class="text-[10px] font-bold text-slate-500 uppercase">{{ languageService.translate('currentLegend') }}</span></div>
         </div>
       </div>
     </div>
@@ -64,6 +64,7 @@ export class ConsumptionChartComponent implements OnChanges, OnInit, AfterViewIn
   @Input() assetId: any;
   @Input() realtimeData: any; 
   @Input() mode: string = 'live'; 
+  public languageService = inject(LanguageService);
 
   @ViewChild('realtimeCanvas') realtimeCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('historyCanvas') historyCanvas!: ElementRef<HTMLCanvasElement>;
@@ -127,9 +128,9 @@ export class ConsumptionChartComponent implements OnChanges, OnInit, AfterViewIn
     this.rtChart = new Chart(this.realtimeCanvas.nativeElement, {
       type: 'line',
       data: { labels: [], datasets: [
-        { label: 'Puissance', data: [], borderColor: '#3b82f6', borderWidth: 1.5, tension: 0.4, pointRadius: 0, yAxisID: 'y' },
-        { label: 'Tension', data: [], borderColor: '#f59e0b', borderWidth: 1.5, tension: 0.4, pointRadius: 0, yAxisID: 'yV', fill: true, backgroundColor: 'rgba(245, 158, 11, 0.02)' },
-        { label: 'Intensité', data: [], borderColor: '#10b981', borderWidth: 1.5, tension: 0.4, pointRadius: 0, yAxisID: 'y' }
+        { label: this.languageService.translate('powerLegend'), data: [], borderColor: '#3b82f6', borderWidth: 1.5, tension: 0.4, pointRadius: 0, yAxisID: 'y' },
+        { label: this.languageService.translate('voltageLegend'), data: [], borderColor: '#f59e0b', borderWidth: 1.5, tension: 0.4, pointRadius: 0, yAxisID: 'yV', fill: true, backgroundColor: 'rgba(245, 158, 11, 0.02)' },
+        { label: this.languageService.translate('currentLegend'), data: [], borderColor: '#10b981', borderWidth: 1.5, tension: 0.4, pointRadius: 0, yAxisID: 'y' }
       ]},
       options: this.getChartOptions()
     });
@@ -173,9 +174,9 @@ export class ConsumptionChartComponent implements OnChanges, OnInit, AfterViewIn
       data: {
         labels: labels,
         datasets: [
-          { label: 'Puissance', data: data.map(d => d.avgpower), borderColor: '#3b82f6', borderWidth: 2, tension: 0.4, yAxisID: 'y', pointRadius: 0 },
-          { label: 'Tension', data: data.map(d => d.avgvoltage), borderColor: '#f59e0b', borderWidth: 2, tension: 0.4, yAxisID: 'yV', fill: true, backgroundColor: 'rgba(245, 158, 11, 0.04)', pointRadius: 0 },
-          { label: 'Intensité', data: data.map(d => d.avgcurrent), borderColor: '#10b981', borderWidth: 2, tension: 0.4, yAxisID: 'y', pointRadius: 0 }
+          { label: this.languageService.translate('powerLegend'), data: data.map(d => d.avgpower), borderColor: '#3b82f6', borderWidth: 2, tension: 0.4, yAxisID: 'y', pointRadius: 0 },
+          { label: this.languageService.translate('voltageLegend'), data: data.map(d => d.avgvoltage), borderColor: '#f59e0b', borderWidth: 2, tension: 0.4, yAxisID: 'yV', fill: true, backgroundColor: 'rgba(245, 158, 11, 0.04)', pointRadius: 0 },
+          { label: this.languageService.translate('currentLegend'), data: data.map(d => d.avgcurrent), borderColor: '#10b981', borderWidth: 2, tension: 0.4, yAxisID: 'y', pointRadius: 0 }
         ]
       },
       options: this.getChartOptions()
@@ -209,21 +210,27 @@ export class ConsumptionChartComponent implements OnChanges, OnInit, AfterViewIn
             label: (context: any) => {
               const label = context.dataset.label || '';
               const value = context.parsed.y !== null ? context.parsed.y.toFixed(2) : '0.00';
+              const currentLabel = this.languageService.translate('currentLegend');
+              const powerLabel = this.languageService.translate('powerLegend');
+              const voltageLabel = this.languageService.translate('voltageLegend');
               
               // Ajout des unités dynamiquement selon le label
               let unit = '';
-              if (label.includes('Intensité')) unit = '(A)';
-              if (label.includes('Puissance')) unit = '(kW)';
-              if (label.includes('Tension')) unit = '(V)';
+              if (label.includes(currentLabel) || label.includes('A')) unit = '(A)';
+              if (label.includes(powerLabel) || label.includes('kW')) unit = '(kW)';
+              if (label.includes(voltageLabel) || label.includes('V')) unit = '(V)';
               
               return `${label} ${unit} : ${value}`;
             },
             // Logique de couleur du texte par ligne
             labelTextColor: (context: any) => {
               const label = context.dataset.label || '';
-              if (label.includes('Intensité')) return '#10b981'; // Vert
-              if (label.includes('Puissance')) return '#3b82f6'; // Bleu
-              if (label.includes('Tension')) return '#f59e0b';   // Orange
+              const currentLabel = this.languageService.translate('currentLegend');
+              const powerLabel = this.languageService.translate('powerLegend');
+              const voltageLabel = this.languageService.translate('voltageLegend');
+              if (label.includes(currentLabel)) return '#10b981'; // Vert
+              if (label.includes(powerLabel)) return '#3b82f6'; // Bleu
+              if (label.includes(voltageLabel)) return '#f59e0b';   // Orange
               return '#1e293b';
             }
           }
