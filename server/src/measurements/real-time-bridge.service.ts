@@ -2,7 +2,7 @@ import { Injectable, OnModuleInit, Inject } from '@nestjs/common';
 import { DATABASE_CONNECTION } from '../db/database.provider';
 import * as schema from '../db/schema';
 import WebSocket from 'ws';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 
 @Injectable()
 export class RealTimeBridgeService implements OnModuleInit {
@@ -22,14 +22,22 @@ export class RealTimeBridgeService implements OnModuleInit {
     if (this.activeAssetId === assetId && this.activeSocket?.readyState === WebSocket.OPEN) return;
     if (this.connectingAssetId === assetId && this.activeSocket?.readyState === WebSocket.CONNECTING) return;
 
-    if (this.activeAssetId !== assetId) {
-      this.stopCurrentConnection();
-    }
-
     const [asset] = await this.db.select().from(schema.assets).where(eq(schema.assets.id, assetId));
     if (asset && asset.webSocketLink) {
+      if (this.activeAssetId !== assetId) {
+        this.stopCurrentConnection();
+      }
       this.connectingAssetId = asset.id;
       this.createSocketConnection(asset);
+    } else {
+      // If the selected asset has no websocket link, keep any existing active connection open.
+      // This allows parent assets like Ligne1/site1 to continue receiving aggregated alerts
+      // from descendant equipment streams instead of dropping the current data feed.
+      if (this.activeSocket?.readyState === WebSocket.OPEN) {
+        console.log(`Asset ${assetId} has no websocket link. Keeping existing connection open for aggregated alerts.`);
+        return;
+      }
+      this.stopCurrentConnection();
     }
   }
 
@@ -75,6 +83,67 @@ export class RealTimeBridgeService implements OnModuleInit {
               value: maxI, threshold: asset.maxCurrent
             });
           }
+
+          // --- Génération d'alertes agrégées pour les ancêtres ---
+          try {
+            const allAssets = await this.db.select().from(schema.assets);
+            const findAncestors = (id: number) => {
+              const ancestors: any[] = [];
+              let current = allAssets.find(a => a.id === id);
+              while (current && current.parentId) {
+                const parent = allAssets.find(a => a.id === current.parentId);
+                if (!parent) break;
+                ancestors.push(parent);
+                current = parent;
+              }
+              return ancestors;
+            };
+
+            const findDescendantsIds = (id: number): number[] => {
+              const children = allAssets.filter(a => a.parentId === id);
+              let ids = [id];
+              for (const c of children) {
+                ids = ids.concat(findDescendantsIds(c.id));
+              }
+              return ids;
+            };
+
+            const ancestors = findAncestors(asset.id);
+            for (const anc of ancestors) {
+              const descIds = findDescendantsIds(anc.id);
+              if (!descIds || descIds.length === 0) continue;
+
+              // Pour chaque descendant, récupérer le dernier enregistrement et sommer le max phase
+              let sumMaxI = 0;
+              for (const dId of descIds) {
+                const recs = await this.db.select().from(schema.measurements).where(eq(schema.measurements.assetId, dId)).orderBy(desc(schema.measurements.timestamp)).limit(1);
+                const r = recs[0];
+                if (!r) continue;
+                const m = Math.max(Number(r.I1 || 0), Number(r.I2 || 0), Number(r.I3 || 0));
+                sumMaxI += m;
+              }
+
+              if (anc.maxCurrent && sumMaxI > anc.maxCurrent) {
+                // éviter doublons: vérifier la dernière alerte
+                const last = await this.db.select().from(schema.alerts).where(eq(schema.alerts.assetId, anc.id)).orderBy(desc(schema.alerts.timestamp)).limit(1);
+                const lastAlert = last[0];
+                const shouldInsert = !lastAlert || Number(lastAlert.value) !== Number(sumMaxI);
+                if (shouldInsert) {
+                  console.log(`Création alerte agrégée pour ${anc.name}: valeur=${sumMaxI}, seuil=${anc.maxCurrent}`);
+                  await this.db.insert(schema.alerts).values({
+                    assetId: anc.id,
+                    message: `Surcharge détectée sur ${anc.name}`,
+                    value: sumMaxI,
+                    threshold: anc.maxCurrent,
+                    timestamp: new Date()
+                  });
+                }
+              }
+            }
+          } catch (aggErr) {
+            console.warn('Erreur génération alertes agrégées:', aggErr);
+          }
+
         } catch (e) {
           console.warn('WebSocket message handling error:', e);
         }
@@ -116,6 +185,64 @@ export class RealTimeBridgeService implements OnModuleInit {
     this.activeAssetId = null;
     this.connectingAssetId = null;
     this.wasOpen = false;
+  }
+
+  async generateAggregatedAlertsForAsset(assetId: number) {
+    const allAssets = await this.db.select().from(schema.assets);
+    const target = allAssets.find(a => a.id === assetId);
+    if (!target) return;
+
+    const findAncestors = (id: number) => {
+      const ancestors: any[] = [];
+      let current = allAssets.find(a => a.id === id);
+      while (current && current.parentId) {
+        const parent = allAssets.find(a => a.id === current.parentId);
+        if (!parent) break;
+        ancestors.push(parent);
+        current = parent;
+      }
+      return ancestors;
+    };
+
+    const findDescendantsIds = (id: number): number[] => {
+      const children = allAssets.filter(a => a.parentId === id);
+      let ids = [id];
+      for (const c of children) {
+        ids = ids.concat(findDescendantsIds(c.id));
+      }
+      return ids;
+    };
+
+    const ancestorsAndSelf = [target, ...findAncestors(assetId)];
+    for (const anc of ancestorsAndSelf) {
+      const descIds = findDescendantsIds(anc.id);
+      if (!descIds || descIds.length === 0) continue;
+
+      let sumMaxI = 0;
+      for (const dId of descIds) {
+        const recs = await this.db.select().from(schema.measurements).where(eq(schema.measurements.assetId, dId)).orderBy(desc(schema.measurements.timestamp)).limit(1);
+        const r = recs[0];
+        if (!r) continue;
+        const m = Math.max(Number(r.I1 || 0), Number(r.I2 || 0), Number(r.I3 || 0));
+        sumMaxI += m;
+      }
+
+      if (anc.maxCurrent && sumMaxI > anc.maxCurrent) {
+        const last = await this.db.select().from(schema.alerts).where(eq(schema.alerts.assetId, anc.id)).orderBy(desc(schema.alerts.timestamp)).limit(1);
+        const lastAlert = last[0];
+        const shouldInsert = !lastAlert || Number(lastAlert.value) !== Number(sumMaxI);
+        if (shouldInsert) {
+          console.log(`Création alerte agrégée (backup) pour ${anc.name}: valeur=${sumMaxI}, seuil=${anc.maxCurrent}`);
+          await this.db.insert(schema.alerts).values({
+            assetId: anc.id,
+            message: `Surcharge détectée sur ${anc.name}`,
+            value: sumMaxI,
+            threshold: anc.maxCurrent,
+            timestamp: new Date()
+          });
+        }
+      }
+    }
   }
 
   private resetDisconnectTimer() {

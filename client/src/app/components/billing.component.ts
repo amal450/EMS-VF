@@ -24,13 +24,13 @@ import { AssetStateService } from '../services/asset-state.service';
         <div class="flex items-center gap-3 no-print whitespace-nowrap">
           <div class="flex items-center gap-2 text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">
             <span>{{ languageService.translate('monthLabel') }}</span>
-            <select class="px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" (change)="onMonthChange($event)">
+            <select class="px-3 py-2 rounded-full border border-cyan-400/30 bg-white/70 backdrop-blur-sm text-slate-700 font-black outline-none shadow-[0_0_24px_rgba(56,189,248,0.16)] ring-1 ring-cyan-400/20 transition-all duration-200 focus:ring-2 focus:ring-cyan-300/30" (change)="onMonthChange($event)">
               <option *ngFor="let month of months" [value]="month.value" [selected]="month.value === selectedMonth()">{{ languageService.translateMonth(month.value) }}</option>
             </select>
           </div>
           <div class="flex items-center gap-2 text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">
             <span>{{ languageService.translate('yearLabel') }}</span>
-            <input type="number" min="2000" max="2100" class="w-24 px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="selectedYear()" (input)="onYearChange($event)" />
+            <input type="number" min="2000" max="2100" class="w-24 px-3 py-2 rounded-full border border-cyan-400/30 bg-white/70 backdrop-blur-sm text-slate-700 font-black outline-none shadow-[0_0_24px_rgba(56,189,248,0.16)] ring-1 ring-cyan-400/20 transition-all duration-200 focus:ring-2 focus:ring-cyan-300/30" [value]="selectedYear()" (input)="onYearChange($event)" />
           </div>
           <button (click)="loadBillingData()" 
                   class="px-8 py-3 bg-cyan-500/10 text-cyan-600 border-2 border-cyan-500/20 rounded-full font-black text-[12px] uppercase shadow-[0_0_15px_rgba(6,182,212,0.15)] hover:bg-cyan-500 hover:text-white transition-all flex items-center gap-2">
@@ -44,9 +44,9 @@ import { AssetStateService } from '../services/asset-state.service';
       </div>
 
       <!-- GRAND CADRE AVEC EFFET LUMIÈRE (Glow) -->
-      <div class="max-w-5xl mx-auto bg-white/40 backdrop-blur-md rounded-[3rem] shadow-[0_0_80px_rgba(59,130,246,0.12)] border border-white p-10 mb-12" *ngIf="assetName()">
-        
-        <div class="overflow-hidden rounded-[2rem] border border-white shadow-sm bg-white/30">
+      <div class="relative max-w-5xl mx-auto bg-white/40 backdrop-blur-md rounded-[3rem] border border-white/70 p-10 mb-12 shadow-[0_0_80px_rgba(59,130,246,0.18)] overflow-hidden" *ngIf="assetName()">
+        <div class="pointer-events-none absolute inset-0 rounded-[3rem] bg-gradient-to-br from-cyan-200/30 via-sky-100/20 to-purple-200/20 blur-3xl"></div>
+        <div class="relative z-10 overflow-hidden rounded-[2rem] border border-white shadow-sm bg-white/30">
           <table class="w-full text-left border-collapse">
             <thead>
               <!-- CAPTURE 1 : EN-TÊTE TRANSPARENT ET DÉGRADÉ -->
@@ -393,121 +393,62 @@ export class BillingComponent implements OnInit {
     return Math.min(100, (amount / max) * 100);
   }
 
-  downloadPDF() {
-    const b = this.bill();
-    const name = this.assetName();
+  async downloadPDF() {
+    const selected = this.assetService.selectedAsset();
+    if (!selected) {
+      console.error('Invoice download failed: no selected asset');
+      return;
+    }
+
+    const id = selected.id;
     const month = this.selectedMonth();
     const year = this.selectedYear();
-    const t = (key: string) => this.languageService.translate(key);
-    const monthLabel = this.languageService.translateMonth(month);
-    const issueLocale = this.languageService.language() === 'en' ? 'en-US' : 'fr-FR';
-    const issueDate = new Date().toLocaleDateString(issueLocale);
-    
-    // Generate HTML content for the invoice
-    const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>${t('invoiceTitle')} - ${name} ${monthLabel} ${year}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1e293b; background: white; }
-    .invoice-box { max-width: 800px; margin: 0 auto; padding: 40px; border: 2px solid #333; border-radius: 10px; }
-    .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #0ea5e9; }
-    .header h1 { font-size: 32px; color: #0ea5e9; margin-bottom: 10px; }
-    .header p { color: #64748b; font-size: 14px; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
-    th { background: #333; color: white; padding: 12px; text-align: left; font-weight: 700; }
-    th:nth-child(2), th:nth-child(3), th:nth-child(4) { text-align: center; }
-    td { padding: 10px; border: 1px solid #ddd; }
-    td:nth-child(2), td:nth-child(3), td:nth-child(4) { text-align: center; }
-    tr:nth-child(even) { background: #f8fafc; }
-    .total-row { background: #0ea5e9 !important; color: white; font-weight: 700; }
-    .total-row td { border: none; }
-    .footer { margin-top: 30px; text-align: center; color: #94a3b8; font-size: 11px; }
-    @media print { body { padding: 20px; } }
-  </style>
-</head>
-<body>
-  <div class="invoice-box">
-    <div class="header">
-      <h1>${t('invoiceTitle')}</h1>
-      <p>${t('invoiceEquipment')}: ${name}</p>
-      <p>${t('invoicePeriod')} : ${monthLabel} ${year}</p>
-      <p>${t('invoiceIssuedDate')} : ${issueDate}</p>
-    </div>
-    
-    <table>
-      <thead>
-        <tr>
-          <th>${t('designation')}</th>
-          <th>${t('consumption')}</th>
-          <th>${t('unitPrice')}</th>
-          <th>${t('amount')}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>${t('activeEnergyLabel')}</strong></td>
-          <td>${b.activeEnergy?.toFixed(2) || '0.00'}</td>
-          <td>-</td>
-          <td>${this.calculateEnergyHT().toFixed(3)}</td>
-        </tr>
-        <tr>
-          <td style="padding-left: 30px;">${t('dayConsumption')}</td>
-          <td>${(b.activeEnergy * 0.4).toFixed(2)}</td>
-          <td>0.290</td>
-          <td>${(b.activeEnergy * 0.4 * 0.29).toFixed(3)}</td>
-        </tr>
-        <tr>
-          <td style="padding-left: 30px;">${t('peakConsumption')}</td>
-          <td>${(b.activeEnergy * 0.2).toFixed(2)}</td>
-          <td>0.417</td>
-          <td>${(b.activeEnergy * 0.2 * 0.417).toFixed(3)}</td>
-        </tr>
-        <tr>
-          <td style="padding-left: 30px;">${t('nightConsumption')}</td>
-          <td>${(b.activeEnergy * 0.4).toFixed(2)}</td>
-          <td>0.222</td>
-          <td>${(b.activeEnergy * 0.4 * 0.222).toFixed(3)}</td>
-        </tr>
-        <tr>
-          <td><strong>${t('powerCharge')} (DT)</strong></td>
-          <td>-</td>
-          <td>-</td>
-          <td>${b.primePuissance?.toFixed(3) || '0.000'}</td>
-        </tr>
-        <tr>
-          <td><strong>${t('tvaConsumption')}</strong></td>
-          <td>-</td>
-          <td>-</td>
-          <td>${this.calculateTVA().toFixed(3)}</td>
-        </tr>
-        <tr class="total-row">
-          <td><strong>${t('totalNetTTC')}</strong></td>
-          <td>-</td>
-          <td>-</td>
-          <td><strong>${this.calculateTotal().toFixed(3)} DT</strong></td>
-        </tr>
-      </tbody>
-    </table>
-    
-    <div class="footer">
-      <p>${t('invoiceGeneratedBy')}</p>
-    </div>
-  </div>
-</body>
-</html>`;
+    const token = this.authService.getToken();
+    if (!token) {
+      console.error('Invoice download failed: no auth token');
+      return;
+    }
 
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${t('invoiceTitle').replace(/\s+/g, '_')}_${name.replace(/\s+/g, '_')}_${monthLabel}_${year}_${new Date().toISOString().slice(0,10)}.pdf.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+    const lang = this.languageService.language();
+    const url = `http://localhost:3000/measurements/billing/${id}/pdf?month=${month}&year=${year}&lang=${lang}`;
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        console.error('Invoice PDF download failed:', response.status, response.statusText);
+        return;
+      }
+
+      const blob = await response.blob();
+      if (!blob || blob.size === 0) {
+        console.error('Invoice PDF download failed: empty blob');
+        return;
+      }
+
+      const rawFileName = `${selected.name.replace(/\s+/g, '_')}_${month}_${year}_${new Date().toISOString().slice(0,10)}.pdf`;
+      const fileName = rawFileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const blobUrl = URL.createObjectURL(blob);
+
+      if (window.navigator && (window.navigator as any).msSaveOrOpenBlob) {
+        (window.navigator as any).msSaveOrOpenBlob(blob, fileName);
+      } else {
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+        document.body.removeChild(link);
+      }
+
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+    } catch (err) {
+      console.error('Invoice PDF download failed:', err);
+    }
   }
 }

@@ -1,14 +1,16 @@
-<div class="w-full h-full p-8 bg-white overflow-y-auto custom-scrollbar">
+<div class="w-full h-full p-8 bg-white overflow-y-auto custom-scrollbar dashboard-scroll">
 
   <!-- NOTIFICATION TOAST (Temporaire 3 sec) -->
   <div *ngIf="showNotification() && authService.hasPermission('VIEW_ALERTS')"
        class="fixed top-8 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
-    <div class="bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-xl shadow-2xl border border-red-400 max-w-2xl">
-      <div class="flex items-center justify-between gap-4">
-        <span class="text-[11px] font-black uppercase tracking-[0.2em]">{{ languageService.translate('alertLabel') }} {{ alertNotificationCount() }}</span>
-        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/20 text-sm font-black">{{ alertNotificationCount() }}</span>
+    <div class="bg-red-50 border border-red-200 text-red-700 px-5 py-3 rounded-[2rem] shadow-[0_0_30px_rgba(239,68,68,0.18)] max-w-xl min-w-[320px]">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-black">!</div>
+        <div class="flex-1">
+          <p class="text-[10px] font-black uppercase tracking-[0.2em] mb-1">{{ languageService.translate('alertLabel') }} {{ alertNotificationCount() }}</p>
+          <p class="text-sm font-bold tracking-tight leading-5">{{ notificationMessage() }}</p>
+        </div>
       </div>
-      <p class="text-sm font-bold tracking-wide mt-2">{{ notificationMessage() }}</p>
     </div>
   </div>
 

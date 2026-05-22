@@ -99,11 +99,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!this.authService.hasPermission('VIEW_ALERTS') || !assetId) {
       return;
     }
-
+    // Get the latest alert only for the selected asset. Each asset must show its own alert.
     this.http.get<any>(`http://localhost:3000/measurements/alerts/latest?assetId=${assetId}`, {
       headers: { 'Authorization': `Bearer ${this.authService.getToken()}` }
     }).subscribe(alert => {
-      if (alert && alert.id !== this.lastAlertId && alert.assetId === assetId) {
+      if (alert && alert.id && alert.id !== this.lastAlertId) {
         this.lastAlertId = alert.id;
         this.showAlertNotification(alert);
       }

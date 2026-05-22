@@ -17,10 +17,12 @@
   </div>
 
   <!-- GRAND CONTENEUR AVEC LUMIÈRE -->
-  <div class="bg-white/70 backdrop-blur-sm rounded-[2.5rem] shadow-[0_0_60px_rgba(59,130,246,0.08)] border border-white p-10">
-    
-    <!-- Loading State -->
-    <div *ngIf="isLoading()" class="flex items-center justify-center py-20">
+  <div class="relative">
+    <div class="absolute inset-0 rounded-[3rem] bg-gradient-to-r from-cyan-400/20 via-blue-300/10 to-purple-500/20 blur-3xl opacity-90 pointer-events-none"></div>
+    <div class="relative bg-white/85 backdrop-blur-sm rounded-[2.5rem] shadow-[0_0_80px_rgba(59,130,246,0.18)] border border-white/70 p-10">
+      
+      <!-- Loading State -->
+      <div *ngIf="isLoading()" class="flex items-center justify-center py-20">
       <div class="text-center">
         <div class="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
         <p class="text-slate-500 font-medium">{{ languageService.translate('loadingAssets') }}</p>

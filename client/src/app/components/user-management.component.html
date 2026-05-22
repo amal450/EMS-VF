@@ -21,9 +21,11 @@
   </div>
 
   <!-- Grand Conteneur Glow -->
-  <div class="bg-white/70 backdrop-blur-sm rounded-[2.5rem] shadow-[0_0_50px_rgba(59,130,246,0.12)] border border-white p-10">
-    <div class="space-y-6">
-      <!-- Légende -->
+  <div class="relative">
+    <div class="absolute inset-0 rounded-[3rem] bg-gradient-to-r from-cyan-400/20 via-blue-300/10 to-purple-500/20 blur-3xl opacity-90 pointer-events-none"></div>
+    <div class="relative bg-white/85 backdrop-blur-sm rounded-[2.5rem] shadow-[0_0_80px_rgba(59,130,246,0.18)] border border-white/70 p-10">
+      <div class="space-y-6">
+        <!-- Légende -->
       <div class="grid grid-cols-12 px-10 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
         <div class="col-span-3">{{ languageService.translate('userLabel') }}</div>
         <div class="col-span-3">{{ languageService.translate('email') }}</div>
@@ -77,7 +79,7 @@
         </div>
         <div>
           <label class="text-[9px] font-black text-slate-400 uppercase ml-2">{{ languageService.translate('email') }}</label>
-          <input type="email" [(ngModel)]="userForm().email" class="w-full p-3.5 bg-white border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 text-sm">
+          <input type="email" [(ngModel)]="userForm().email" class="w-full p-3.5 bg-white rounded-2xl font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 text-sm" [class.border-red-300]="formError()" [class.border-slate-200]="!formError()">
         </div>
         <div *ngIf="!isEditMode()">
           <label class="text-[9px] font-black text-slate-400 uppercase ml-2">{{ languageService.translate('password') }}</label>
@@ -112,6 +114,17 @@
             </div>
           </div>
         </div>
+
+        <div *ngIf="formError()" class="mt-4 rounded-[2rem] border border-red-200 bg-red-50/90 p-4 shadow-[0_0_20px_rgba(239,68,68,0.08)]">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-black">!</div>
+            <div>
+              <p class="text-sm font-black text-red-700 uppercase tracking-[0.08em]">Erreur</p>
+              <p class="mt-1 text-sm text-red-700 leading-6">{{ formError() }}</p>
+            </div>
+          </div>
+        </div>
+
       </div>
       <div class="flex gap-3 mt-8">
         <button (click)="showUserModal.set(false)" class="flex-1 py-3.5 font-bold bg-slate-100 text-slate-500 rounded-2xl">{{ languageService.translate('cancel') }}</button>

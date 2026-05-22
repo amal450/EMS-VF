@@ -45,7 +45,7 @@ import { LanguageService } from '../services/language.service';
             </div>
           </div>
         </header>
-        <main class="flex-1 overflow-y-auto bg-white relative">
+        <main class="flex-1 overflow-y-auto bg-white relative dashboard-scroll">
           <div class="max-w-[1600px] mx-auto"><router-outlet></router-outlet></div>
         </main>
       </div>

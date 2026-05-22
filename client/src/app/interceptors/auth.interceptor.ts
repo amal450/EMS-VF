@@ -3,16 +3,20 @@ import {
   HttpRequest,
   HttpHandler,
   HttpEvent,
-  HttpInterceptor,
   HttpInterceptorFn
 } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { AuthService } from '../services/auth.service';
 
 // OPTION 1: Utiliser une fonction (recommandé pour Angular 15+)
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const token = localStorage.getItem('auth_token');
-  
+  let token: string | null = null;
+
+  try {
+    token = localStorage.getItem('auth_token');
+  } catch (err) {
+    console.warn('LocalStorage access blocked in auth interceptor:', err);
+  }
+
   if (token && !req.url.includes('/auth/')) {
     const cloned = req.clone({
       setHeaders: {

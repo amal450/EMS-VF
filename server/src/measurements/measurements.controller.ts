@@ -2,13 +2,16 @@ import { Controller, Get, Post, Body, Param, Query, UseGuards, Res, Delete } fro
 import { MeasurementsService } from './measurements.service';
 import { RealTimeBridgeService } from './real-time-bridge.service'; 
 import { JwtAuthGuard } from '../auth/jwt.guard';
+import { AssetsService } from '../assets/assets.service';
 import * as express from 'express'; 
+import htmlPdf from 'html-pdf';
 
 @Controller('measurements')
 export class MeasurementsController {
   constructor(
     private readonly measurementsService: MeasurementsService,
-    private readonly bridgeService: RealTimeBridgeService, 
+    private readonly bridgeService: RealTimeBridgeService,
+    private readonly assetsService: AssetsService,
   ) {}
 
   @Post()
@@ -18,7 +21,196 @@ export class MeasurementsController {
   @Get('latest/:id')
   async getLatest(@Param('id') id: string) {
     await this.bridgeService.activateOnly(+id);
+    await this.bridgeService.generateAggregatedAlertsForAsset(+id);
     return this.measurementsService.findLatest(+id);
+  }
+
+  @Post('report/:id/pdf')
+  async postReportPdf(
+    @Res() res: express.Response,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    const startDate = body.startDate as string | undefined;
+    const endDate = body.endDate as string | undefined;
+    const parsedStart = this.parseIsoDate(startDate);
+    const parsedEnd = this.parseIsoDate(endDate);
+    const hasCustomRange = Boolean(parsedStart && parsedEnd);
+    const { start, end } = hasCustomRange
+      ? this.normalizeInterval(parsedStart!, parsedEnd!)
+      : this.normalizeInterval(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), new Date());
+    const rawData = hasCustomRange
+      ? await this.measurementsService.findHistoryInterval(+id, startDate?.trim() ?? '', endDate?.trim() ?? '')
+      : await this.measurementsService.findHistory(+id, 'month');
+    const intervalUnit = this.chooseTimelineUnit(start, end);
+    const hasData = rawData.length > 0;
+    const data = hasData ? this.buildTimeline(rawData, start, end, intervalUnit) : [];
+    const startLabel = this.formatReportDate(start);
+    const endLabel = this.formatReportDate(end);
+    const rangeLabel = `${startLabel} → ${endLabel}`;
+    const reportLang = body.lang === 'en' ? 'en' : 'fr';
+    const dateLocale = reportLang === 'en' ? 'en-US' : 'fr-FR';
+    const reportPrefix = reportLang === 'en' ? 'Report' : 'Rapport';
+    const reportTitle = reportLang === 'en' ? 'OPERATIONS REPORT' : 'RAPPORT D\'EXPLOITATION';
+    const reportDescription = reportLang === 'en'
+      ? `Report of line voltages, phase currents and power indicators for the selected asset.`
+      : `Analyse des tensions, courants de phase et indicateurs de puissance pour l'équipement sélectionné.`;
+    const chartSectionTitle = reportLang === 'en' ? 'Historical Charts' : 'Courbes Historiques';
+    const descriptionSectionTitle = reportLang === 'en' ? 'Analysis Summary' : 'Description des Analyses';
+    const noDataText = reportLang === 'en'
+      ? 'No measurements recorded for the selected period. Charts will remain empty.'
+      : 'Aucune mesure enregistrée pour la période sélectionnée. Les courbes resteront vides.';
+    const dataSectionTitle = reportLang === 'en' ? 'Historical operating data' : 'Données Historiques d\'Exploitation';    const descriptionPoints = reportLang === 'en'
+      ? [
+          'Voltage report: Analysis of phase-to-neutral voltages (V1N, V2N, V3N) and phase-to-phase voltages (V12, V23, V31).',
+          'Current report: Tracking the load on each phase (I1, I2, I3) and imbalance analysis.',
+          'Power report: Use of active power (TKW) and power factor (PF).',
+          'Frequency report: Analysis of grid stability around 50 Hz.',
+          'Quality report: Combination of indicators for an overall view.'
+        ]
+      : [
+          'Rapport de tension : Analyse des tensions phase-neutre (V1N, V2N, V3N) et phase-phase (V12, V23, V31).',
+          'Rapport de courant : Suivi de la charge sur chaque phase (I1, I2, I3) et analyse de l\'équilibrage.',
+          'Rapport de puissance : Utilisation de la puissance active (TKW) et du facteur de puissance (PF).',
+          'Rapport de fréquence : Analyse de la stabilité réseau autour de 50 Hz.',
+          'Rapport de qualité : Combinaison des indicateurs pour une vue globale.'
+        ];    const emptyTableText = reportLang === 'en'
+      ? 'No measurements available for the selected period.'
+      : 'Aucune mesure disponible pour la période sélectionnée.';
+    const footerText = reportLang === 'en'
+      ? 'Volt EMS Intelligence v2.0 | Generated on'
+      : 'Volt EMS Intelligence v2.0 | Généré le';
+
+    const asset = await this.assetsService.findOne(+id);
+    const assetName = asset?.name || `#${id}`;
+
+    const images: string[] = Array.isArray(body.images) ? body.images : [];
+    const placeholder = reportLang === 'en' ? 'Chart preview omitted for server PDF.' : 'Aperçu du graphique omis pour le PDF serveur.';
+
+    const chartHtml = (index: number) => {
+      const img = images[index];
+      if (img && typeof img === 'string') {
+        // trim data:image prefix if present
+        const cleaned = img.replace(/^data:image\/(png|jpeg);base64,/, '');
+        return `<div class="chart-box"><img src="data:image/png;base64,${cleaned}" style="width:100%;height:100%;object-fit:contain"/></div>`;
+      }
+      return `<div class="chart-box">${placeholder}</div>`;
+    };
+
+    let html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${reportTitle} - ${assetName}</title>
+  <style>
+    /* same styles as GET report */
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: white; padding: 20px; }
+    .header { text-align: center; margin-bottom: 20px; }
+    .report-details { margin-top: 16px; font-size: 12px; color: #475569; display: grid; gap: 6px; justify-items: center; }
+    .report-details p { margin: 0; }
+    .report-details strong { color: #0f172a; }
+    .description-section { margin-top: 20px; }
+    .description-section h2 { margin-bottom: 10px; }
+    .description-list { margin: 0; padding-left: 18px; color: #334155; font-size: 12px; line-height: 1.5; }
+    .description-list p { margin: 6px 0; }
+    .description-list p::before { content: '•'; margin-right: 8px; color: #0f172a; font-weight: 700; }
+    .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .chart-box { height: 180px; border: 1px solid #e6eef6; border-radius: 8px; background: #f8fafc; padding: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    th, td { border: 1px solid #e2e8f0; padding: 6px 8px; }
+    th { background: #334155; color: #ffffff; text-align: left; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>${reportTitle}</h1>
+    <p>${reportDescription}</p>
+    <div class="report-details">
+      <p><strong>${reportLang === 'en' ? 'Asset type' : 'Type d\'asset'}:</strong> ${this.translateAssetType(asset?.type, reportLang)} &nbsp; | &nbsp; <strong>${reportLang === 'en' ? 'Asset name' : 'Nom de l\'asset'}:</strong> ${assetName}</p>
+      <p><strong>${reportLang === 'en' ? 'Interval' : 'Intervalle'}:</strong> ${rangeLabel} &nbsp; | &nbsp; <strong>${reportLang === 'en' ? 'Generated' : 'Généré'}:</strong> ${new Date().toLocaleDateString(dateLocale)}</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>${chartSectionTitle}</h2>
+    <div class="chart-grid">
+      ${chartHtml(0)}
+      ${chartHtml(1)}
+      ${chartHtml(2)}
+      ${chartHtml(3)}
+    </div>
+  </div>
+
+  <div class="section description-section">
+    <h2>${descriptionSectionTitle}</h2>
+    <div class="description-list">
+      ${descriptionPoints.map(p => `<p>${p}</p>`).join('')}
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>${dataSectionTitle}</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>${reportLang === 'en' ? 'Timestamp' : 'Horodatage'}</th>
+          <th>${reportLang === 'en' ? 'Voltage (V)' : 'Tension (V)'}</th>
+          <th>${reportLang === 'en' ? 'Current (A)' : 'Intensité (A)'}</th>
+          <th>${reportLang === 'en' ? 'Power (kW)' : 'Puissance (kW)'}</th>
+          <th>${reportLang === 'en' ? 'Energy (kWh)' : 'Énergie (kWh)'}</th>
+          <th>${reportLang === 'en' ? 'Power Factor' : 'Facteur PF'}</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+    if (data.length === 0) {
+      html += `
+        <tr>
+          <td colspan="6" style="text-align:center; padding: 18px; color: #64748b;">${emptyTableText}</td>
+        </tr>`;
+    } else {
+      data.forEach(d => {
+        const v = d.avgvoltage ? d.avgvoltage.toFixed(2) : '230.00';
+        const i = d.avgcurrent ? d.avgcurrent.toFixed(2) : '0.00';
+        const p = d.avgpower ? d.avgpower.toFixed(2) : '0.00';
+        const e = (d.avgpower * 24).toFixed(2);
+        html += `
+        <tr>
+          <td>${d.time || '-'}</td>
+          <td>${v}</td>
+          <td>${i}</td>
+          <td>${p}</td>
+          <td>${e}</td>
+          <td>0.95</td>
+        </tr>`;
+      });
+    }
+
+    html += `
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <p>${footerText} ${new Date().toLocaleDateString(dateLocale)}</p>
+  </div>
+</body>
+</html>`;
+
+    return new Promise<void>((resolve, reject) => {
+      htmlPdf.create(html, { format: 'A4', orientation: 'landscape', border: '10mm' }).toBuffer((err: Error | null, buffer: Buffer) => {
+        if (err) {
+          console.error('Report PDF generation (POST) failed:', err);
+          res.status(500).send('Erreur de génération du PDF');
+          return reject(err);
+        }
+        res.setHeader('Content-Type', 'application/pdf');
+        const safeReportFilename = `${reportPrefix}_${assetName.replace(/\s+/g, '_')}.pdf`;
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(safeReportFilename)}`);
+        res.status(200).send(buffer);
+        resolve();
+      });
+    });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -64,10 +256,325 @@ export class MeasurementsController {
 
   @UseGuards(JwtAuthGuard)
   @Get('billing/:id')
-  getBilling(@Param('id') id: string, @Query('month') month?: string, @Query('year') year?: string) {
+  async getBilling(
+    @Res({ passthrough: true }) res: express.Response,
+    @Param('id') id: string,
+    @Query('month') month?: string,
+    @Query('year') year?: string,
+    @Query('format') format?: string,
+    @Query('lang') lang?: string,
+  ) {
     const monthNum = month ? Number(month) : undefined;
     const yearNum = year ? Number(year) : undefined;
+
+    if (format === 'pdf') {
+      const reportLang = lang === 'en' ? 'en' : 'fr';
+      const dateLocale = reportLang === 'en' ? 'en-US' : 'fr-FR';
+      const asset = await this.assetsService.findOne(+id);
+      const assetName = asset?.name || `#${id}`;
+      const billing = await this.measurementsService.getInvoice(+id, monthNum, yearNum);
+      const invoiceMonth = billing.month || (new Date().getMonth() + 1);
+      const invoiceYear = billing.year || new Date().getFullYear();
+      const monthNamesEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      const monthNamesFr = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+      const monthLabel = reportLang === 'en' ? monthNamesEn[invoiceMonth - 1] : monthNamesFr[invoiceMonth - 1];
+      const issueDate = new Date().toLocaleDateString(dateLocale);
+      const energyPrice = (billing.activeEnergy * 0.4 * billing.rateJour) +
+                          (billing.activeEnergy * 0.2 * billing.ratePointeMatin) +
+                          (billing.activeEnergy * 0.4 * billing.rateNuit);
+      const tvaAmount = (energyPrice + billing.primePuissance) * billing.tva;
+      const totalAmount = energyPrice + billing.primePuissance + tvaAmount;
+
+      const title = reportLang === 'en' ? '⚡ INVOICE' : '⚡ FACTURE';
+      const equipmentText = reportLang === 'en' ? 'Equipment' : 'Équipement';
+      const periodText = reportLang === 'en' ? 'Period' : 'Période';
+      const issuedDateText = reportLang === 'en' ? 'Issue Date' : 'Date d\'émission';
+      const designationText = reportLang === 'en' ? 'Designation' : 'Désignation';
+      const consumptionText = reportLang === 'en' ? 'Consumption' : 'Consommation';
+      const unitPriceText = reportLang === 'en' ? 'Unit Price' : 'Prix Unitaire';
+      const amountText = reportLang === 'en' ? 'Amount' : 'Montant';
+      const activeEnergyText = reportLang === 'en' ? 'Active energy' : 'Énergie active';
+      const dayConsumptionText = reportLang === 'en' ? 'Day consumption' : 'Consommation jour';
+      const peakConsumptionText = reportLang === 'en' ? 'Peak consumption' : 'Consommation pointe';
+      const nightConsumptionText = reportLang === 'en' ? 'Night consumption' : 'Consommation nuit';
+      const powerChargeText = reportLang === 'en' ? 'Power charge' : 'Prime puissance';
+      const tvaText = reportLang === 'en' ? 'VAT' : 'TVA';
+      const totalText = reportLang === 'en' ? 'Total net TTC' : 'Total net TTC';
+      const generatedByText = reportLang === 'en'
+        ? 'Document generated by the EMS system - Energy Management System'
+        : 'Document généré par le système EMS - Energy Management System';
+
+      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${title} - ${assetName} ${monthLabel} ${invoiceYear}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1e293b; background: white; }
+    .invoice-box { max-width: 800px; margin: 0 auto; padding: 40px; border: 2px solid #333; border-radius: 10px; }
+    .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #0ea5e9; }
+    .header h1 { font-size: 32px; color: #0ea5e9; margin-bottom: 10px; }
+    .header p { color: #64748b; font-size: 14px; margin: 4px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
+    th { background: #333; color: white; padding: 12px; text-align: left; font-weight: 700; }
+    th:nth-child(2), th:nth-child(3), th:nth-child(4) { text-align: center; }
+    td { padding: 10px; border: 1px solid #ddd; }
+    td:nth-child(2), td:nth-child(3), td:nth-child(4) { text-align: center; }
+    tr:nth-child(even) { background: #f8fafc; }
+    .total-row { background: #0ea5e9 !important; color: white; font-weight: 700; }
+    .total-row td { border: none; }
+    .footer { margin-top: 30px; text-align: center; color: #94a3b8; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="invoice-box">
+    <div class="header">
+      <h1>${title}</h1>
+      <p>${equipmentText}: ${assetName}</p>
+      <p>${periodText}: ${monthLabel} ${invoiceYear}</p>
+      <p>${issuedDateText}: ${issueDate}</p>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>${designationText}</th>
+          <th>${consumptionText}</th>
+          <th>${unitPriceText}</th>
+          <th>${amountText}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>${activeEnergyText}</strong></td>
+          <td>${billing.activeEnergy?.toFixed(2) || '0.00'}</td>
+          <td>-</td>
+          <td>${energyPrice.toFixed(3)}</td>
+        </tr>
+        <tr>
+          <td style="padding-left: 30px;">${dayConsumptionText}</td>
+          <td>${(billing.activeEnergy * 0.4).toFixed(2)}</td>
+          <td>0.290</td>
+          <td>${(billing.activeEnergy * 0.4 * billing.rateJour).toFixed(3)}</td>
+        </tr>
+        <tr>
+          <td style="padding-left: 30px;">${peakConsumptionText}</td>
+          <td>${(billing.activeEnergy * 0.2).toFixed(2)}</td>
+          <td>0.417</td>
+          <td>${(billing.activeEnergy * 0.2 * billing.ratePointeMatin).toFixed(3)}</td>
+        </tr>
+        <tr>
+          <td style="padding-left: 30px;">${nightConsumptionText}</td>
+          <td>${(billing.activeEnergy * 0.4).toFixed(2)}</td>
+          <td>0.222</td>
+          <td>${(billing.activeEnergy * 0.4 * billing.rateNuit).toFixed(3)}</td>
+        </tr>
+        <tr>
+          <td><strong>${powerChargeText}</strong></td>
+          <td>-</td>
+          <td>-</td>
+          <td>${billing.primePuissance?.toFixed(3) || '0.000'}</td>
+        </tr>
+        <tr>
+          <td><strong>${tvaText}</strong></td>
+          <td>-</td>
+          <td>-</td>
+          <td>${tvaAmount.toFixed(3)}</td>
+        </tr>
+        <tr class="total-row">
+          <td><strong>${totalText}</strong></td>
+          <td>-</td>
+          <td>-</td>
+          <td><strong>${totalAmount.toFixed(3)} DT</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer">
+      <p>${generatedByText}</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+      return new Promise<void>((resolve, reject) => {
+        htmlPdf.create(html, { format: 'A4', orientation: 'portrait', border: '10mm' }).toBuffer((err: Error | null, buffer: Buffer) => {
+          if (err) {
+            console.error('Invoice PDF generation failed:', err);
+            res.status(500).send(reportLang === 'en' ? 'PDF generation failed' : 'Échec de génération du PDF');
+            return reject(err);
+          }
+          res.setHeader('Content-Type', 'application/pdf');
+          const safeFilename = `${title.replace(/\s+/g, '_')}_${assetName.replace(/\s+/g, '_')}_${monthLabel}_${invoiceYear}.pdf`;
+          res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(safeFilename)}`);
+          res.status(200).send(buffer);
+          resolve();
+        });
+      });
+    }
+
     return this.measurementsService.getInvoice(+id, monthNum, yearNum);
+  }
+
+  // Public PDF endpoint (no auth) - convenience for client download during development.
+  // NOTE: this is intentionally unauthenticated to simplify downloads; consider protecting it in production.
+  @Get('billing/:id/pdf')
+  async getBillingPdfPublic(
+    @Res() res: express.Response,
+    @Param('id') id: string,
+    @Query('month') month?: string,
+    @Query('year') year?: string,
+    @Query('lang') lang?: string,
+  ) {
+    const monthNum = month ? Number(month) : undefined;
+    const yearNum = year ? Number(year) : undefined;
+    const reportLang = lang === 'en' ? 'en' : 'fr';
+    const dateLocale = reportLang === 'en' ? 'en-US' : 'fr-FR';
+    const asset = await this.assetsService.findOne(+id);
+    const assetName = asset?.name || `#${id}`;
+    const billing = await this.measurementsService.getInvoice(+id, monthNum, yearNum);
+    const invoiceMonth = billing.month || (new Date().getMonth() + 1);
+    const invoiceYear = billing.year || new Date().getFullYear();
+    const monthNamesEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthNamesFr = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+    const monthLabel = reportLang === 'en' ? monthNamesEn[invoiceMonth - 1] : monthNamesFr[invoiceMonth - 1];
+    const issueDate = new Date().toLocaleDateString(dateLocale);
+    const energyPrice = (billing.activeEnergy * 0.4 * billing.rateJour) +
+                        (billing.activeEnergy * 0.2 * billing.ratePointeMatin) +
+                        (billing.activeEnergy * 0.4 * billing.rateNuit);
+    const tvaAmount = (energyPrice + billing.primePuissance) * billing.tva;
+    const totalAmount = energyPrice + billing.primePuissance + tvaAmount;
+
+    const title = reportLang === 'en' ? '⚡ INVOICE' : '⚡ FACTURE';
+    const equipmentText = reportLang === 'en' ? 'Equipment' : 'Équipement';
+    const periodText = reportLang === 'en' ? 'Period' : 'Période';
+    const issuedDateText = reportLang === 'en' ? 'Issue Date' : 'Date d\'émission';
+    const designationText = reportLang === 'en' ? 'Designation' : 'Désignation';
+    const consumptionText = reportLang === 'en' ? 'Consumption' : 'Consommation';
+    const unitPriceText = reportLang === 'en' ? 'Unit Price' : 'Prix Unitaire';
+    const amountText = reportLang === 'en' ? 'Amount' : 'Montant';
+    const activeEnergyText = reportLang === 'en' ? 'Active energy' : 'Énergie active';
+    const dayConsumptionText = reportLang === 'en' ? 'Day consumption' : 'Consommation jour';
+    const peakConsumptionText = reportLang === 'en' ? 'Peak consumption' : 'Consommation pointe';
+    const nightConsumptionText = reportLang === 'en' ? 'Night consumption' : 'Consommation nuit';
+    const powerChargeText = reportLang === 'en' ? 'Power charge' : 'Prime puissance';
+    const tvaText = reportLang === 'en' ? 'VAT' : 'TVA';
+    const totalText = reportLang === 'en' ? 'Total net TTC' : 'Total net TTC';
+    const generatedByText = reportLang === 'en'
+      ? 'Document generated by the EMS system - Energy Management System'
+      : 'Document généré par le système EMS - Energy Management System';
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${title} - ${assetName} ${monthLabel} ${invoiceYear}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1e293b; background: white; }
+    .invoice-box { max-width: 800px; margin: 0 auto; padding: 40px; border: 2px solid #333; border-radius: 10px; }
+    .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #0ea5e9; }
+    .header h1 { font-size: 32px; color: #0ea5e9; margin-bottom: 10px; }
+    .header p { color: #64748b; font-size: 14px; margin: 4px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
+    th { background: #333; color: white; padding: 12px; text-align: left; font-weight: 700; }
+    th:nth-child(2), th:nth-child(3), th:nth-child(4) { text-align: center; }
+    td { padding: 10px; border: 1px solid #ddd; }
+    td:nth-child(2), td:nth-child(3), td:nth-child(4) { text-align: center; }
+    tr:nth-child(even) { background: #f8fafc; }
+    .total-row { background: #0ea5e9 !important; color: white; font-weight: 700; }
+    .total-row td { border: none; }
+    .footer { margin-top: 30px; text-align: center; color: #94a3b8; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="invoice-box">
+    <div class="header">
+      <h1>${title}</h1>
+      <p>${equipmentText}: ${assetName}</p>
+      <p>${periodText}: ${monthLabel} ${invoiceYear}</p>
+      <p>${issuedDateText}: ${issueDate}</p>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>${designationText}</th>
+          <th>${consumptionText}</th>
+          <th>${unitPriceText}</th>
+          <th>${amountText}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>${activeEnergyText}</strong></td>
+          <td>${billing.activeEnergy?.toFixed(2) || '0.00'}</td>
+          <td>-</td>
+          <td>${energyPrice.toFixed(3)}</td>
+        </tr>
+        <tr>
+          <td style="padding-left: 30px;">${dayConsumptionText}</td>
+          <td>${(billing.activeEnergy * 0.4).toFixed(2)}</td>
+          <td>0.290</td>
+          <td>${(billing.activeEnergy * 0.4 * billing.rateJour).toFixed(3)}</td>
+        </tr>
+        <tr>
+          <td style="padding-left: 30px;">${peakConsumptionText}</td>
+          <td>${(billing.activeEnergy * 0.2).toFixed(2)}</td>
+          <td>0.417</td>
+          <td>${(billing.activeEnergy * 0.2 * billing.ratePointeMatin).toFixed(3)}</td>
+        </tr>
+        <tr>
+          <td style="padding-left: 30px;">${nightConsumptionText}</td>
+          <td>${(billing.activeEnergy * 0.4).toFixed(2)}</td>
+          <td>0.222</td>
+          <td>${(billing.activeEnergy * 0.4 * billing.rateNuit).toFixed(3)}</td>
+        </tr>
+        <tr>
+          <td><strong>${powerChargeText}</strong></td>
+          <td>-</td>
+          <td>-</td>
+          <td>${billing.primePuissance?.toFixed(3) || '0.000'}</td>
+        </tr>
+        <tr>
+          <td><strong>${tvaText}</strong></td>
+          <td>-</td>
+          <td>-</td>
+          <td>${tvaAmount.toFixed(3)}</td>
+        </tr>
+        <tr class="total-row">
+          <td><strong>${totalText}</strong></td>
+          <td>-</td>
+          <td>-</td>
+          <td><strong>${totalAmount.toFixed(3)} DT</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer">
+      <p>${generatedByText}</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    return new Promise<void>((resolve, reject) => {
+      htmlPdf.create(html, { format: 'A4', orientation: 'portrait', border: '10mm' }).toBuffer((err: Error | null, buffer: Buffer) => {
+        if (err) {
+          console.error('Invoice PDF generation failed (public):', err);
+          res.status(500).send(reportLang === 'en' ? 'PDF generation failed' : 'Échec de génération du PDF');
+          return reject(err);
+        }
+        res.setHeader('Content-Type', 'application/pdf');
+        const safeFilenamePublic = `${title.replace(/\s+/g, '_')}_${assetName.replace(/\s+/g, '_')}_${monthLabel}_${invoiceYear}.pdf`;
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(safeFilenamePublic)}`);
+        res.status(200).send(buffer);
+        resolve();
+      });
+    });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -90,10 +597,8 @@ export class MeasurementsController {
   }
 
   private normalizeInterval(startDate: Date, endDate: Date) {
-    const normalizedStart = new Date(startDate);
-    const normalizedEnd = new Date(endDate);
-    normalizedStart.setHours(0, 0, 0, 0);
-    normalizedEnd.setHours(0, 0, 0, 0);
+    const normalizedStart = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(), 0, 0, 0, 0));
+    const normalizedEnd = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 0, 0, 0, 0));
     return { start: normalizedStart, end: normalizedEnd };
   }
 
@@ -102,7 +607,7 @@ export class MeasurementsController {
     const parts = dateStr.trim().split('-').map(Number);
     if (parts.length !== 3 || parts.some(p => !Number.isFinite(p))) return null;
     const [year, month, day] = parts;
-    return new Date(year, month - 1, day, 0, 0, 0, 0);
+    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
   }
 
   private chooseTimelineUnit(start: Date, end: Date) {
@@ -115,10 +620,13 @@ export class MeasurementsController {
 
   private buildTimeline(data: any[], start: Date, end: Date, unit: 'hour' | 'day' | 'month'): Array<{ time: string; avgpower: number; avgvoltage: number; avgcurrent: number; }> {
     const formatter = (date: Date) => {
-      const iso = date.toISOString();
-      if (unit === 'hour') return iso.slice(0, 13).replace('T', ' ');
-      if (unit === 'month') return iso.slice(0, 7);
-      return iso.slice(0, 10);
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const hours = String(date.getUTCHours()).padStart(2, '0');
+      if (unit === 'hour') return `${year}-${month}-${day} ${hours}`;
+      if (unit === 'month') return `${year}-${month}`;
+      return `${year}-${month}-${day}`;
     };
 
     const valueMap = new Map<string, any>();
@@ -139,9 +647,9 @@ export class MeasurementsController {
         avgvoltage: item?.avgvoltage || 0,
         avgcurrent: item?.avgcurrent || 0,
       });
-      if (unit === 'hour') cursor.setHours(cursor.getHours() + 1);
-      else if (unit === 'month') cursor.setMonth(cursor.getMonth() + 1);
-      else cursor.setDate(cursor.getDate() + 1);
+      if (unit === 'hour') cursor.setUTCHours(cursor.getUTCHours() + 1);
+      else if (unit === 'month') cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+      else cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
     return rows;
   }
@@ -197,175 +705,71 @@ export class MeasurementsController {
     res.setHeader('Expires', '0');
 
     if (isPdf) {
-      // Préparer les données pour les graphiques
-      const chartLabels = hasData ? data.map(d => d.time || '-').slice(-20) : [startLabel];
-      const chartPower = hasData ? data.map(d => d.avgpower ? parseFloat(d.avgpower.toFixed(2)) : 0).slice(-20) : [null];
-      const chartVoltage = hasData ? data.map(d => d.avgvoltage ? parseFloat(d.avgvoltage.toFixed(2)) : 230).slice(-20) : [null];
-      const chartCurrent = hasData ? data.map(d => d.avgcurrent ? parseFloat(d.avgcurrent.toFixed(2)) : 0).slice(-20) : [null];
+      const asset = await this.assetsService.findOne(+id);
+      const assetName = asset?.name || `#${id}`;
+      const assetTypeLabel = asset ? this.translateAssetType(asset.type, reportLang) : (reportLang === 'en' ? 'Asset' : 'Équipement');
 
-      // Générer HTML pour impression PDF avec graphiques
       let html = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Rapport EMS - Asset #${id}</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>${reportTitle} - ${assetName}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1e293b; background: white; }
-    .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #0ea5e9; }
-    .header h1 { font-size: 28px; color: #0ea5e9; margin-bottom: 10px; }
-    .header p { color: #64748b; font-size: 14px; }
-    .section { margin-bottom: 30px; }
-    .section h2 { font-size: 16px; color: #334155; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; }
-    table { width: 100%; border-collapse: collapse; font-size: 11px; }
-    th { background: #334155; color: white; padding: 10px; text-align: left; font-weight: 700; }
-    td { padding: 8px 10px; border: 1px solid #e2e8f0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; color: #1e293b; background: white; font-size: 11px; line-height: 1.4; }
+    .header { text-align: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 3px solid #0ea5e9; }
+    .header h1 { font-size: 22px; color: #0ea5e9; margin-bottom: 6px; }
+    .header p { color: #475569; font-size: 11px; margin: 2px 0; }
+    .section { margin-bottom: 18px; page-break-inside: avoid; }
+    .section h2 { font-size: 13px; color: #334155; margin-bottom: 10px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; }
+    .details { display: flex; flex-wrap: wrap; gap: 12px; font-size: 10px; color: #475569; }
+    .details span { min-width: 180px; }
+    .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .chart-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; min-height: 110px; display: flex; align-items: center; justify-content: center; color: #64748b; font-style: italic; }
+    table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    th, td { border: 1px solid #e2e8f0; padding: 6px 8px; }
+    th { background: #334155; color: #ffffff; text-align: left; }
     tr:nth-child(even) { background: #f8fafc; }
-    .chart-container { position: relative; height: 300px; width: 100%; margin-bottom: 20px; }
-    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-    .chart-box { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; }
-    .chart-box h3 { font-size: 14px; color: #475569; margin-bottom: 10px; }
-    .footer { margin-top: 30px; text-align: center; color: #94a3b8; font-size: 11px; border-top: 1px solid #e2e8f0; padding-top: 20px; }
-    @media print { 
-      body { padding: 20px; } 
-      .chart-container { height: 250px; }
-    }
+    .footer { margin-top: 18px; text-align: center; color: #94a3b8; font-size: 9px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1>⚡ ${reportTitle}</h1>
-    <p>${reportLang === 'en' ? 'Equipment ID' : 'Équipement ID'} #${id}</p>
-    <p>${reportLang === 'en' ? 'Start date' : 'Date de début'} : ${startLabel}</p>
-    <p>${reportLang === 'en' ? 'End date' : 'Date de fin'} : ${endLabel}</p>
-    <p>${reportLang === 'en' ? 'Selected interval' : 'Intervalle sélectionné'} : ${rangeLabel}</p>
-    <p>${reportLang === 'en' ? 'Issue date' : 'Date d\'émission'} : ${new Date().toLocaleDateString(dateLocale)}</p>
-  </div>
-  <div class="section">
-    <h2>📊 ${descriptionSectionTitle}</h2>
-    <p style="color: #64748b; margin-bottom: 15px;">${reportDescription}</p>
-    <ul style="padding-left: 20px; line-height: 1.8;">
-      <li><strong>${reportLang === 'en' ? 'Voltage report:' : 'Rapport de tension :'}</strong> ${reportLang === 'en' ? 'Analysis of phase-to-neutral voltages (V1N, V2N, V3N) and phase-to-phase voltages (V12, V23, V31).' : 'Analyse des tensions phase-neutre (V1N, V2N, V3N) et phase-phase (V12, V23, V31).'}</li>
-      <li><strong>${reportLang === 'en' ? 'Current report:' : 'Rapport de courant :'}</strong> ${reportLang === 'en' ? 'Tracking load across each phase (I1, I2, I3) and imbalance analysis.' : 'Suivi de la charge sur chaque phase (I1, I2, I3) et analyse de l\'équilibrage.'}</li>
-      <li><strong>${reportLang === 'en' ? 'Power report:' : 'Rapport de puissance :'}</strong> ${reportLang === 'en' ? 'Usage of active power (TKW) and power factor (PF).' : 'Utilisation de la puissance active (TKW) et du facteur de puissance (PF).'}</li>
-      <li><strong>${reportLang === 'en' ? 'Frequency report:' : 'Rapport de fréquence :'}</strong> ${reportLang === 'en' ? 'Analysis of grid stability around 50 Hz.' : 'Analyse de la stabilité réseau autour de 50 Hz.'}</li>
-      <li><strong>${reportLang === 'en' ? 'Quality report:' : 'Rapport de qualité :'}</strong> ${reportLang === 'en' ? 'Combination of indicators for a holistic view.' : 'Combinaison des indicateurs pour une vue globale.'}</li>
-    </ul>
+    <h1>${reportTitle}</h1>
+    <p>${reportDescription}</p>
   </div>
 
   <div class="section">
-    <h2>📈 ${chartSectionTitle}</h2>
-    ${!hasData ? `<p style="color: #64748b; margin-bottom: 15px;">${noDataText}</p>` : ''}
-    <div class="charts-grid">
-      <div class="chart-box">
-        <h3>${reportLang === 'en' ? 'Power (kW)' : 'Puissance (kW)'}</h3>
-        <div class="chart-container"><canvas id="powerChart"></canvas></div>
-      </div>
-      <div class="chart-box">
-        <h3>${reportLang === 'en' ? 'Voltage (V)' : 'Tension (V)'}</h3>
-        <div class="chart-container"><canvas id="voltageChart"></canvas></div>
-      </div>
-      <div class="chart-box">
-        <h3>${reportLang === 'en' ? 'Current (A)' : 'Intensité (A)'}</h3>
-        <div class="chart-container"><canvas id="currentChart"></canvas></div>
-      </div>
-      <div class="chart-box">
-        <h3>${reportLang === 'en' ? 'Combined View' : 'Vue Combinée'}</h3>
-        <div class="chart-container"><canvas id="combinedChart"></canvas></div>
-      </div>
+    <h2>${reportLang === 'en' ? 'Report details' : 'Détails du rapport'}</h2>
+    <div class="details">
+      <span><strong>${reportLang === 'en' ? 'Asset type:' : 'Type d\'asset :'}</strong> ${assetTypeLabel}</span>
+      <span><strong>${reportLang === 'en' ? 'Asset name:' : 'Nom de l\'asset :'}</strong> ${assetName}</span>
+      <span><strong>${reportLang === 'en' ? 'Selected interval:' : 'Intervalle :'}</strong> ${rangeLabel}</span>
+      <span><strong>${reportLang === 'en' ? 'Generated:' : 'Généré :'}</strong> ${new Date().toLocaleString(dateLocale)}</span>
     </div>
   </div>
 
-  <script>
-    // Données pour les graphiques
-    const labels = ${JSON.stringify(chartLabels)};
-    const powerData = ${JSON.stringify(chartPower)};
-    const voltageData = ${JSON.stringify(chartVoltage)};
-    const currentData = ${JSON.stringify(chartCurrent)};
-
-    // Graphique Puissance
-    new Chart(document.getElementById('powerChart'), {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: '${reportLang === 'en' ? 'Power (kW)' : 'Puissance (kW)'}',
-          data: powerData,
-          borderColor: '#3b82f6',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          fill: true,
-          tension: 0.4
-        }]
-      },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } }
-    });
-
-    // Graphique Tension
-    new Chart(document.getElementById('voltageChart'), {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: '${reportLang === 'en' ? 'Voltage (V)' : 'Tension (V)'}',
-          data: voltageData,
-          borderColor: '#f59e0b',
-          backgroundColor: 'rgba(245, 158, 11, 0.1)',
-          fill: true,
-          tension: 0.4
-        }]
-      },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } }
-    });
-
-    // Graphique Intensité
-    new Chart(document.getElementById('currentChart'), {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: '${reportLang === 'en' ? 'Current (A)' : 'Intensité (A)'}',
-          data: currentData,
-          borderColor: '#10b981',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          fill: true,
-          tension: 0.4
-        }]
-      },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } }
-    });
-
-    // Graphique Combiné
-    new Chart(document.getElementById('combinedChart'), {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [
-          { label: '${reportLang === 'en' ? 'Power (kW)' : 'Puissance (kW)'}', data: powerData, borderColor: '#3b82f6', tension: 0.4 },
-          { label: '${reportLang === 'en' ? 'Voltage (V)' : 'Tension (V)'}', data: voltageData, borderColor: '#f59e0b', tension: 0.4 },
-          { label: '${reportLang === 'en' ? 'Current (A)' : 'Intensité (A)'}', data: currentData, borderColor: '#10b981', tension: 0.4 }
-        ]
-      },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } }
-    });
-  </script>
+  <div class="section">
+    <h2>${chartSectionTitle}</h2>
+    <div class="chart-grid">
+      <div class="chart-box">${reportLang === 'en' ? 'Chart preview omitted for server PDF.' : 'Aperçu du graphique omis pour le PDF serveur.'}</div>
+      <div class="chart-box">${reportLang === 'en' ? 'Chart preview omitted for server PDF.' : 'Aperçu du graphique omis pour le PDF serveur.'}</div>
+      <div class="chart-box">${reportLang === 'en' ? 'Chart preview omitted for server PDF.' : 'Aperçu du graphique omis pour le PDF serveur.'}</div>
+      <div class="chart-box">${reportLang === 'en' ? 'Chart preview omitted for server PDF.' : 'Aperçu du graphique omis pour le PDF serveur.'}</div>
+    </div>
+  </div>
 
   <div class="section">
-    <h2>📋 ${dataSectionTitle}</h2>
+    <h2>${dataSectionTitle}</h2>
     <table>
       <thead>
         <tr>
           <th>${reportLang === 'en' ? 'Timestamp' : 'Horodatage'}</th>
-          <th>${reportLang === 'en' ? 'Voltage V1N (V)' : 'Tension V1N (V)'}</th>
-          <th>${reportLang === 'en' ? 'Voltage V2N (V)' : 'Tension V2N (V)'}</th>
-          <th>${reportLang === 'en' ? 'Voltage V3N (V)' : 'Tension V3N (V)'}</th>
-          <th>${reportLang === 'en' ? 'Current I1 (A)' : 'Intensité I1 (A)'}</th>
-          <th>${reportLang === 'en' ? 'Current I2 (A)' : 'Intensité I2 (A)'}</th>
-          <th>${reportLang === 'en' ? 'Current I3 (A)' : 'Intensité I3 (A)'}</th>
+          <th>${reportLang === 'en' ? 'Voltage (V)' : 'Tension (V)'}</th>
+          <th>${reportLang === 'en' ? 'Current (A)' : 'Intensité (A)'}</th>
           <th>${reportLang === 'en' ? 'Power (kW)' : 'Puissance (kW)'}</th>
           <th>${reportLang === 'en' ? 'Energy (kWh)' : 'Énergie (kWh)'}</th>
-          <th>${reportLang === 'en' ? 'Frequency (Hz)' : 'Fréquence (Hz)'}</th>
           <th>${reportLang === 'en' ? 'Power Factor' : 'Facteur PF'}</th>
         </tr>
       </thead>
@@ -375,27 +779,21 @@ export class MeasurementsController {
       if (data.length === 0) {
         html += `
         <tr>
-          <td colspan="11" style="text-align:center; padding: 18px; color: #64748b;">${emptyTableText}</td>
+          <td colspan="6" style="text-align:center; padding: 18px; color: #64748b;">${emptyTableText}</td>
         </tr>`;
       } else {
         data.forEach(d => {
-          const v = d.avgvoltage ? d.avgvoltage.toFixed(2) : "230.00";
-          const i = d.avgcurrent ? d.avgcurrent.toFixed(2) : "0.00";
-          const p = d.avgpower ? d.avgpower.toFixed(2) : "0.00";
+          const v = d.avgvoltage ? d.avgvoltage.toFixed(2) : '230.00';
+          const i = d.avgcurrent ? d.avgcurrent.toFixed(2) : '0.00';
+          const p = d.avgpower ? d.avgpower.toFixed(2) : '0.00';
           const e = (d.avgpower * 24).toFixed(2);
-          
           html += `
         <tr>
           <td>${d.time || '-'}</td>
           <td>${v}</td>
-          <td>${v}</td>
-          <td>${v}</td>
-          <td>${i}</td>
-          <td>${i}</td>
           <td>${i}</td>
           <td>${p}</td>
           <td>${e}</td>
-          <td>50.00</td>
           <td>0.95</td>
         </tr>`;
         });
@@ -407,13 +805,25 @@ export class MeasurementsController {
   </div>
 
   <div class="footer">
-    <p>Volt EMS Intelligence v2.0 | Généré le ${new Date().toLocaleString('fr-FR')}</p>
+    <p>${footerText} ${new Date().toLocaleDateString(dateLocale)}</p>
   </div>
 </body>
 </html>`;
 
-      res.setHeader('Content-Type', 'text/html');
-      return res.status(200).send(html);
+      return new Promise<void>((resolve, reject) => {
+        htmlPdf.create(html, { format: 'A4', orientation: 'landscape', border: '10mm' }).toBuffer((err: Error | null, buffer: Buffer) => {
+          if (err) {
+            console.error('PDF generation failed:', err);
+            res.status(500).send('Erreur de génération du PDF');
+            return reject(err);
+          }
+          res.setHeader('Content-Type', 'application/pdf');
+          const safeReportFilename = `${reportPrefix}_${assetName.replace(/\s+/g, '_')}.pdf`;
+          res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(safeReportFilename)}`);
+          res.status(200).send(buffer);
+          resolve();
+        });
+      });
     }
 
     // Default CSV format
@@ -473,7 +883,19 @@ export class MeasurementsController {
     });
 
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=${reportPrefix}_EMS_Asset_${id}.csv`);
+    const safeCsvFilename = `${reportPrefix}_EMS_Asset_${id}.csv`;
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(safeCsvFilename)}`);
     return res.status(200).send(csv);
+  }
+
+  private translateAssetType(assetType: string | undefined, lang: 'en' | 'fr') {
+    const labels: Record<string, { en: string; fr: string }> = {
+      SITE: { en: 'Site', fr: 'Site' },
+      TGBT: { en: 'TGBT', fr: 'TGBT' },
+      ARMOIRE: { en: 'Panel', fr: 'Armoire' },
+      LIGNE: { en: 'Line', fr: 'Ligne' },
+      EQUIPEMENT: { en: 'Equipment', fr: 'Équipement' },
+    };
+    return assetType && labels[assetType] ? labels[assetType][lang] : (lang === 'en' ? 'Asset' : 'Équipement');
   }
 }

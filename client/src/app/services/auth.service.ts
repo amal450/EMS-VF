@@ -7,30 +7,62 @@ export class AuthService {
   private http = inject(HttpClient);
   private apiUrl = 'http://localhost:3000/auth';
 
-  private currentUserSubject = new BehaviorSubject<any>(JSON.parse(localStorage.getItem('user') || 'null'));
+  private inMemoryToken: string | null = null;
+  private inMemoryUser: any = null;
+
+  private currentUserSubject = new BehaviorSubject<any>(this.getStoredUser());
   public currentUser$ = this.currentUserSubject.asObservable();
 
   public get currentUserValue() { return this.currentUserSubject.value; }
 
-  isAuthenticated(): boolean { return !!localStorage.getItem('auth_token'); }
-
-  isAdmin(): boolean {
-    const role = this.currentUserValue?.role?.toUpperCase();
-    return role === 'ADMIN';
+  private getStoredUser() {
+    const raw = this.getStorageItem('user');
+    if (!raw) {
+      return null;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch (err) {
+      console.warn('Failed to parse stored user:', err);
+      return null;
+    }
   }
 
-  updateLocalUserData(newInfo: any) {
-    const updatedUser = { ...this.currentUserValue, ...newInfo };
-    this.currentUserSubject.next(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
+  private getStorageItem(key: string): string | null {
+    try {
+      return localStorage.getItem(key);
+    } catch (err) {
+      console.warn('LocalStorage access blocked or unavailable:', err);
+      return null;
+    }
   }
+
+  private setStorageItem(key: string, value: string): void {
+    try {
+      localStorage.setItem(key, value);
+    } catch (err) {
+      console.warn('LocalStorage access blocked or unavailable:', err);
+    }
+  }
+
+  private removeStorageItem(key: string): void {
+    try {
+      localStorage.removeItem(key);
+    } catch (err) {
+      console.warn('LocalStorage access blocked or unavailable:', err);
+    }
+  }
+
+  isAuthenticated(): boolean { return !!this.getToken(); }
 
   login(email: string, password: string) {
     return this.http.post<any>(`${this.apiUrl}/login`, { email, password }).pipe(
       tap(res => {
         if (res.access_token) {
-          localStorage.setItem('auth_token', res.access_token);
-          localStorage.setItem('user', JSON.stringify(res.user));
+          this.inMemoryToken = res.access_token;
+          this.inMemoryUser = res.user;
+          this.setStorageItem('auth_token', res.access_token);
+          this.setStorageItem('user', JSON.stringify(res.user));
           this.currentUserSubject.next(res.user);
         }
       })
@@ -41,7 +73,14 @@ export class AuthService {
     return this.http.post(`${this.apiUrl}/register`, { email, username, password });
   }
 
-  getToken() { return localStorage.getItem('auth_token'); }
+  getToken() {
+    return this.inMemoryToken || this.getStorageItem('auth_token');
+  }
+
+  isAdmin(): boolean {
+    const role = this.currentUserValue?.role?.toUpperCase();
+    return role === 'ADMIN';
+  }
 
   hasPermission(code: string): boolean {
     if (this.isAdmin()) {
@@ -51,9 +90,17 @@ export class AuthService {
     return permissions.includes(code);
   }
 
+  updateLocalUserData(newInfo: any) {
+    const updatedUser = { ...this.currentUserValue, ...newInfo };
+    this.currentUserSubject.next(updatedUser);
+    this.setStorageItem('user', JSON.stringify(updatedUser));
+  }
+
   logout() {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
+    this.inMemoryToken = null;
+    this.inMemoryUser = null;
+    this.removeStorageItem('auth_token');
+    this.removeStorageItem('user');
     this.currentUserSubject.next(null);
   }
 

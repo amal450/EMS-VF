@@ -37,6 +37,7 @@ export class UserManagementComponent implements OnInit {
   userToDelete = signal<any>(null);
   message = signal('');
   messageType = signal<'success' | 'error' | ''>('');
+  formError = signal('');
 
   showSuccessModal = signal(false);
   successTitleKey = signal('');
@@ -91,11 +92,18 @@ export class UserManagementComponent implements OnInit {
   private clearMessage() {
     this.message.set('');
     this.messageType.set('');
+    this.formError.set('');
   }
 
   private setMessage(text: string, type: 'success' | 'error' | '') {
     this.message.set(text);
     this.messageType.set(type);
+  }
+
+  private setFormError(text: string) {
+    this.formError.set(text);
+    this.message.set('');
+    this.messageType.set('');
   }
 
   private showSuccess(titleKey: string, messageKey: string, theme: 'green' | 'purple' = 'green', params?: Record<string, string>) {
@@ -183,7 +191,7 @@ export class UserManagementComponent implements OnInit {
           },
           error: (err) => {
             const msg = err?.error?.message || err?.message || 'Erreur lors de la mise à jour.';
-            this.setMessage(msg, 'error');
+            this.setFormError(msg);
           }
         });
     } else {
@@ -196,7 +204,7 @@ export class UserManagementComponent implements OnInit {
           },
           error: (err) => {
             const msg = err?.error?.message || err?.message || 'Erreur lors de la création du compte.';
-            this.setMessage(msg, 'error');
+            this.setFormError(msg);
           }
         });
     }

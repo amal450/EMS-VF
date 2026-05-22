@@ -1,6 +1,8 @@
 import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import Chart from 'chart.js/auto';
 import { AuthService } from '../services/auth.service';
 import { LanguageService } from '../services/language.service';
 
@@ -10,6 +12,15 @@ import { LanguageService } from '../services/language.service';
   imports: [CommonModule],
   template: `
     <div class="w-full h-full p-10 bg-[#f8fafc] overflow-y-auto custom-scrollbar">
+      
+      <!-- PDF GENERATION LOADER OVERLAY -->
+      <div *ngIf="isGeneratingPDF()" class="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-white rounded-3xl p-8 shadow-2xl flex flex-col items-center gap-4">
+          <div class="w-16 h-16 border-4 border-slate-200 border-t-sky-500 rounded-full animate-spin"></div>
+          <p class="text-lg font-bold text-slate-700">{{ languageService.translate('generatingPdf') || 'Génération du PDF...' }}</p>
+          <p class="text-sm text-slate-500">{{ languageService.translate('pleaseWait') || 'Veuillez patienter' }}</p>
+        </div>
+      </div>
       
       <!-- HEADER -->
       <div class="mb-10 flex justify-between items-end">
@@ -29,19 +40,19 @@ import { LanguageService } from '../services/language.service';
       <div class="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
         <div class="flex flex-wrap items-center gap-3">
           <label class="text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">{{ languageService.translate('fromLabel') }}</label>
-          <input type="date" class="px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="reportStartDate()" (change)="reportStartDate.set($any($event.target).value)" />
+          <input type="date" class="px-3 py-2 rounded-full border border-cyan-400/30 bg-white/70 text-slate-700 font-black outline-none shadow-[0_0_24px_rgba(56,189,248,0.16)] ring-1 ring-cyan-400/20 transition-all duration-200 focus:ring-2 focus:ring-cyan-300/30" [value]="reportStartDate()" (change)="reportStartDate.set($any($event.target).value)" />
           <label class="text-slate-500 text-[11px] uppercase tracking-[0.2em] font-black">{{ languageService.translate('toLabel') }}</label>
-          <input type="date" class="px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-700 font-bold outline-none" [value]="reportEndDate()" (change)="reportEndDate.set($any($event.target).value)" />
+          <input type="date" class="px-3 py-2 rounded-full border border-cyan-400/30 bg-white/70 text-slate-700 font-black outline-none shadow-[0_0_24px_rgba(56,189,248,0.16)] ring-1 ring-cyan-400/20 transition-all duration-200 focus:ring-2 focus:ring-cyan-300/30" [value]="reportEndDate()" (change)="reportEndDate.set($any($event.target).value)" />
         </div>
         <div class="flex flex-col gap-3 items-start md:items-end">
-          <button (click)="loadReportDateRange()" class="px-6 py-3 rounded-full bg-sky-500 text-white font-black uppercase tracking-[0.2em] hover:bg-sky-600 transition">{{ languageService.translate('refresh') }}</button>
+          <button (click)="loadReportDateRange()" class="px-6 py-3 rounded-xl font-black uppercase tracking-[0.2em] transition-all border-2 border-sky-200 bg-sky-500/5 text-sky-600 shadow-sm hover:bg-sky-600 hover:text-white">{{ languageService.translate('refresh') }}</button>
         </div>
       </div>
 
       <!-- GRAND CONTENEUR LUMINEUX -->
-      <div class="bg-white/70 backdrop-blur-sm rounded-[2.5rem] shadow-[0_0_60px_rgba(59,130,246,0.1)] border border-white p-12">
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div class="relative bg-white/75 backdrop-blur-sm rounded-[2.5rem] border border-white/70 p-12 shadow-[0_0_80px_rgba(59,130,246,0.18)] overflow-hidden">
+        <div class="pointer-events-none absolute inset-0 rounded-[2.5rem] bg-gradient-to-br from-cyan-200/30 via-sky-100/20 to-purple-200/20 blur-3xl"></div>
+        <div class="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           
           <!-- CARTES DE RAPPORTS - Include SITE now -->
           <div *ngFor="let asset of assets()" 
@@ -113,6 +124,9 @@ export class ReportsComponent implements OnInit {
   assets = signal<any[]>([]);
   reportStartDate = signal<string>(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
   reportEndDate = signal<string>(new Date().toISOString().slice(0, 10));
+  isGeneratingPDF = signal<boolean>(false);
+
+
 
   ngOnInit() {
     const token = this.auth.getToken();
@@ -170,35 +184,107 @@ export class ReportsComponent implements OnInit {
   }
 
   downloadPDF(id: number, name: string) {
-    const token = this.auth.getToken();
-    if (!token) return;
-    const params = new URLSearchParams({
-      startDate: this.reportStartDate(),
-      endDate: this.reportEndDate(),
-      format: 'pdf',
-      lang: this.languageService.language(),
-      ts: Date.now().toString()
-    }).toString();
+    (async () => {
+      const token = this.auth.getToken();
+      if (!token) return;
 
-    // Fetch HTML content and download as PDF (HTML file that can be printed to PDF)
-    this.http.get(`http://localhost:3000/measurements/report/${id}?${params}`, {
-      headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
-      responseType: 'text'
-    }).subscribe({
-      next: (htmlContent: string) => {
-        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-        const url = window.URL.createObjectURL(blob);
+      this.isGeneratingPDF.set(true);
+
+      try {
+        // 1) Fetch history data for charts
+        const period = 'month';
+        let history: any[] = [];
+        try {
+          const historyRes: any[] | undefined = await firstValueFrom(this.http.get<any[]>(`http://localhost:3000/measurements/history/${id}?period=${period}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }));
+          history = historyRes || [];
+        } catch (e) {
+          console.warn('Could not fetch history data, proceeding without images:', e);
+          history = [];
+        }
+
+        const renderChart = async (cfg: any) => {
+          const canvas: HTMLCanvasElement = document.createElement('canvas');
+          canvas.width = 900;
+          canvas.height = 300;
+          canvas.style.position = 'fixed';
+          canvas.style.left = '-9999px';
+          document.body.appendChild(canvas);
+          const chart = new Chart(canvas, cfg);
+          await new Promise(resolve => setTimeout(resolve, 50));
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+          chart.destroy();
+          document.body.removeChild(canvas);
+          return dataUrl;
+        };
+
+        const labels = history.map(d => {
+          const date = new Date(d.time);
+          return `${date.getDate()}/${date.getMonth() + 1}`;
+        });
+        const powerData = history.map(d => d.avgpower || 0);
+        const voltageData = history.map(d => d.avgvoltage || 0);
+        const currentData = history.map(d => d.avgcurrent || 0);
+
+        const chartsToRender = [
+          { type: 'line', data: { labels, datasets: [{ label: 'Power (kW)', data: powerData, borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0 }] }, options: { responsive: false, animation: false, plugins: { legend: { display: false } } } },
+          { type: 'line', data: { labels, datasets: [{ label: 'Voltage (V)', data: voltageData, borderColor: '#f59e0b', borderWidth: 2, pointRadius: 0 }] }, options: { responsive: false, animation: false, plugins: { legend: { display: false } } } },
+          { type: 'line', data: { labels, datasets: [{ label: 'Current (A)', data: currentData, borderColor: '#10b981', borderWidth: 2, pointRadius: 0 }] }, options: { responsive: false, animation: false, plugins: { legend: { display: false } } } },
+          { type: 'line', data: { labels, datasets: [
+            { label: 'Power (kW)', data: powerData, borderColor: '#3b82f6', borderWidth: 1.5, pointRadius: 0 },
+            { label: 'Voltage (V)', data: voltageData, borderColor: '#f59e0b', borderWidth: 1.5, pointRadius: 0, fill: true, backgroundColor: 'rgba(245,158,11,0.04)' },
+            { label: 'Current (A)', data: currentData, borderColor: '#10b981', borderWidth: 1.5, pointRadius: 0 }
+          ] }, options: { responsive: false, animation: false, plugins: { legend: { display: false } } } }
+        ];
+
+        const images: string[] = [];
+        for (const cfg of chartsToRender) {
+          try {
+            const img = await renderChart(cfg);
+            images.push(img);
+          } catch (err) {
+            console.error('Chart render failed', err);
+            images.push('');
+          }
+        }
+
+        const payload = {
+          startDate: this.reportStartDate(),
+          endDate: this.reportEndDate(),
+          lang: this.languageService.language(),
+          images
+        };
+
+        console.log('Requesting report PDF via POST', { assetId: id, startDate: this.reportStartDate(), endDate: this.reportEndDate() });
+        const pdfBlob: Blob = await firstValueFrom(this.http.post(`http://localhost:3000/measurements/report/${id}/pdf`, payload, {
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          responseType: 'blob' as const
+        }));
+
+        if (!pdfBlob || pdfBlob.size === 0) {
+          console.error('Received empty PDF blob for report', { assetId: id });
+        }
+
+        const rawFileName = `${this.languageService.translate('reportFilePrefix')}_${name.replace(/\s+/g, '_')}_${this.reportStartDate()}_${this.reportEndDate()}.pdf`;
+        const fileName = rawFileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const url = window.URL.createObjectURL(pdfBlob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${this.languageService.translate('reportFilePrefix')}_${name.replace(/\s+/g, '_')}_${this.reportStartDate()}_${this.reportEndDate()}.pdf.html`;
+        link.download = fileName;
+        link.style.display = 'none';
         document.body.appendChild(link);
-        link.click();
+        link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
         document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-      },
-      error: (err) => {
-        console.error('Error downloading PDF:', err);
+        setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+
+      } catch (err) {
+        console.error('Error generating report PDF with charts:', err);
+      } finally {
+        this.isGeneratingPDF.set(false);
       }
-    });
+    })();
   }
+
+
 }
